@@ -1,0 +1,11 @@
+{
+  "best_val_rmse_ms": 6.107215036199693,
+  "best_val_rmse_kmh": 21.985974130318894,
+  "params": 32289,
+  "train_windows": 60587,
+  "test_drives": [
+    "vfa02",
+    "vtb5",
+    "vw2"
+  ]
+}
