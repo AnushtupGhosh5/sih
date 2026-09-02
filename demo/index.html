@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>IDR — Intelligent Dead Reckoning · Live Demo</title>
+<link rel="stylesheet" href="vendor/leaflet.css"/>
+<style>
+  :root{
+    --bg:#0b1020; --panel:rgba(18,24,42,.86); --line:#223; --txt:#e8ecf5;
+    --green:#22e06a; --red:#ff4d5e; --cyan:#39c0ff; --amber:#ffb020; --muted:#8b96b0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--txt)}
+  #map{position:absolute;inset:0;z-index:0;background:#0b1020}
+  .leaflet-container{background:#0b1020}
+
+  /* top banner */
+  #banner{position:absolute;top:0;left:0;right:0;z-index:500;display:flex;align-items:center;
+    justify-content:center;gap:14px;padding:12px 18px;font-weight:700;letter-spacing:.4px;
+    background:linear-gradient(180deg,rgba(11,16,32,.95),rgba(11,16,32,0));transition:.3s}
+  #banner .dot{width:12px;height:12px;border-radius:50%;box-shadow:0 0 12px currentColor}
+  #banner.gnss{color:var(--green)}
+  #banner.blackout{color:var(--red)}
+  #banner.blackout .dot{animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(1.5)}}
+  #banner small{color:var(--muted);font-weight:500;letter-spacing:0}
+
+  /* title chip */
+  #title{position:absolute;top:56px;left:16px;z-index:500;background:var(--panel);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:14px;padding:12px 16px;
+    box-shadow:0 8px 30px rgba(0,0,0,.45);max-width:330px}
+  #title h1{margin:0;font-size:16px}
+  #title p{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.45}
+
+  /* stats card */
+  #stats{position:absolute;top:16px;right:16px;z-index:500;width:320px;background:var(--panel);
+    backdrop-filter:blur(8px);border:1px solid var(--line);border-radius:16px;padding:16px;
+    box-shadow:0 10px 34px rgba(0,0,0,.5)}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin:6px 0}
+  .row .k{color:var(--muted);font-size:12px}
+  .row .v{font-variant-numeric:tabular-nums;font-weight:700;font-size:15px}
+  .big{font-size:30px;font-weight:800;font-variant-numeric:tabular-nums}
+  .cmp{margin-top:12px;border-top:1px solid var(--line);padding-top:12px}
+  .cmp .card{border-radius:12px;padding:10px 12px;margin:8px 0;border:1px solid var(--line)}
+  .cmp .red{background:rgba(255,77,94,.10);border-color:rgba(255,77,94,.35)}
+  .cmp .cyan{background:rgba(57,192,255,.10);border-color:rgba(57,192,255,.4)}
+  .cmp .lab{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+  .cmp .num{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:middle}
+
+  /* controls */
+  #ctrl{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);z-index:500;display:flex;
+    align-items:center;gap:14px;background:var(--panel);backdrop-filter:blur(8px);
+    border:1px solid var(--line);border-radius:40px;padding:10px 18px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  #ctrl button{cursor:pointer;border:none;border-radius:50%;width:44px;height:44px;font-size:18px;
+    background:#1c2540;color:var(--txt);transition:.15s}
+  #ctrl button:hover{background:#28345c}
+  #ctrl #play{width:52px;height:52px;font-size:22px;background:var(--cyan);color:#04121e}
+  #ctrl input[type=range]{width:150px;accent-color:var(--cyan)}
+  #ctrl .spd{font-size:12px;color:var(--muted);width:44px;text-align:center}
+  #prog{position:absolute;bottom:0;left:0;height:4px;background:var(--cyan);z-index:500;transition:width .1s linear}
+  .badge{font-size:11px;color:var(--muted);margin-top:4px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="prog"></div>
+
+<div id="banner" class="gnss"><span class="dot" style="background:currentColor"></span><span id="bannerTxt">GNSS ACTIVE</span> <small id="bannerSub"></small></div>
+
+<div id="title">
+  <h1>Intelligent Dead Reckoning + GNSS Fusion</h1>
+  <p>Smartphone-only navigation through a GNSS blackout. Watch plain inertial
+  tracking drift off the map while our IDR engine, constrained to the road
+  network, stays lane-accurate.</p>
+</div>
+
+<div id="stats">
+  <div class="row"><span class="k">Vehicle speed</span><span class="v"><span id="spd" class="big">0</span> km/h</span></div>
+  <div class="row"><span class="k">Distance in blackout</span><span class="v" id="dist">0 m</span></div>
+  <div class="row"><span class="k">Time without GNSS</span><span class="v" id="tmr">0.0 s</span></div>
+  <div class="cmp">
+    <div class="card red">
+      <div class="lab"><span class="swatch" style="background:var(--red)"></span>Plain smartphone IMU</div>
+      <div><span class="num" id="dfree" style="color:var(--red)">0 m</span> <span class="badge" id="dfreePct"></span></div>
+    </div>
+    <div class="card cyan">
+      <div class="lab"><span class="swatch" style="background:var(--cyan)"></span>Our IDR + Map-Matching</div>
+      <div><span class="num" id="dmm" style="color:var(--cyan)">0 m</span> <span class="badge" id="dmmPct"></span></div>
+    </div>
+  </div>
+  <div class="badge" id="foot"></div>
+</div>
+
+<div id="ctrl">
+  <button id="restart" title="Restart">⟲</button>
+  <button id="play" title="Play/Pause">▶</button>
+  <input id="speed" type="range" min="1" max="40" value="12"/>
+  <span class="spd" id="spdlab">12×</span>
+</div>
+
+<script src="vendor/leaflet.js"></script>
+<script src="replay_data.js"></script>
+<script>
+const D = window.REPLAY_DATA;
+const map = L.map('map',{zoomControl:false,attributionControl:false}).setView(D.center,16);
+L.control.zoom({position:'bottomright'}).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {maxZoom:20,subdomains:'abcd'}).addTo(map);
+
+// offline-safe road layer from our cached OSM graph
+const roadLayer = L.layerGroup().addTo(map);
+D.roads.forEach(seg => L.polyline(seg,{color:'#3a4a6b',weight:2,opacity:.45}).addTo(roadLayer));
+
+// track polylines
+const gtLine   = L.polyline([],{color:'#22e06a',weight:5,opacity:.9}).addTo(map);
+const freeLine = L.polyline([],{color:'#ff4d5e',weight:4,opacity:.9,dashArray:'2,7'}).addTo(map);
+const mmLine   = L.polyline([],{color:'#39c0ff',weight:4,opacity:.95}).addTo(map);
+
+function carIcon(color,emoji){return L.divIcon({className:'',iconSize:[34,34],iconAnchor:[17,17],
+  html:`<div style="width:34px;height:34px;border-radius:50%;background:${color};display:flex;
+  align-items:center;justify-content:center;font-size:18px;box-shadow:0 0 16px ${color},0 2px 6px #000;
+  border:2px solid #fff">${emoji}</div>`});}
+const mmMarker   = L.marker(D.center,{icon:carIcon('#39c0ff','🚗'),zIndexOffset:1000}).addTo(map);
+const freeMarker = L.marker(D.center,{icon:carIcon('rgba(255,77,94,.85)','📱'),zIndexOffset:900}).addTo(map);
+
+const F = D.frames;
+let i=0, playing=false, speed=12, acc=0, last=null;
+
+const el = id => document.getElementById(id);
+function fmt(x){return x>=1000?(x/1000).toFixed(2)+' km':Math.round(x)+' m';}
+
+function render(k){
+  const f=F[k];
+  mmMarker.setLatLng(f.mm); freeMarker.setLatLng(f.free);
+  el('spd').textContent=Math.round(f.spd);
+  // banner + blackout state
+  const b=el('banner');
+  if(f.mode==='BLACKOUT'){
+    b.className='blackout'; el('bannerTxt').textContent='GNSS LOST · TUNNEL · DEAD RECKONING';
+    el('bannerSub').textContent='inertial only';
+    freeMarker.setOpacity(1);
+  } else {
+    b.className='gnss'; el('bannerTxt').textContent='GNSS ACTIVE'; el('bannerSub').textContent='';
+    freeMarker.setOpacity(0);
+  }
+  el('dfree').textContent=fmt(f.df);
+  el('dmm').textContent=fmt(f.dm);
+  el('dist').textContent=fmt(distAt(k));
+  el('tmr').textContent=(blackoutTime(k)).toFixed(1)+' s';
+  const bd=D.blackout_dist_m||1000;
+  el('dfreePct').textContent=f.mode==='BLACKOUT'?'('+(100*f.df/bd).toFixed(0)+'% of distance)':'';
+  el('dmmPct').textContent=f.mode==='BLACKOUT'?'('+(100*f.dm/bd).toFixed(1)+'% of distance)':'';
+  el('prog').style.width=(100*k/(F.length-1))+'%';
+  if(k%1===0) map.panTo(f.mm,{animate:true,duration:.2});
+}
+
+function haversine(a,b){const R=6371000,t=Math.PI/180;const dLa=(b[0]-a[0])*t,dLo=(b[1]-a[1])*t;
+  const s=Math.sin(dLa/2)**2+Math.cos(a[0]*t)*Math.cos(b[0]*t)*Math.sin(dLo/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+// precompute per-frame cumulative blackout distance + elapsed time
+const cumDist=[], cumT=[]; let dd=0, ct=0;
+for(let k=0;k<F.length;k++){
+  if(F[k].mode==='BLACKOUT'){ if(k>0)dd+=haversine(F[k-1].gt,F[k].gt); ct+=1; }
+  cumDist[k]=dd; cumT[k]=ct/D.fps;
+}
+function distAt(k){return cumDist[k];}
+function blackoutTime(k){return cumT[k];}
+
+function step(k){
+  gtLine.addLatLng(F[k].gt);
+  if(F[k].mode==='BLACKOUT'){ freeLine.addLatLng(F[k].free); mmLine.addLatLng(F[k].mm);}
+  render(k);
+}
+function rebuild(upto){
+  gtLine.setLatLngs([]); freeLine.setLatLngs([]); mmLine.setLatLngs([]);
+  for(let k=0;k<=upto;k++){gtLine.addLatLng(F[k].gt);
+    if(F[k].mode==='BLACKOUT'){freeLine.addLatLng(F[k].free);mmLine.addLatLng(F[k].mm);}}
+  render(upto);
+}
+
+function loop(ts){
+  if(!playing){last=ts;requestAnimationFrame(loop);return;}
+  if(last==null)last=ts; const dt=(ts-last)/1000; last=ts;
+  acc+=dt*speed*D.fps;
+  while(acc>=1 && i<F.length-1){ i++; step(i); acc-=1; }
+  if(i>=F.length-1){ playing=false; el('play').textContent='▶';
+    el('foot').textContent=`Result over ${fmt(D.blackout_dist_m)} blackout — plain IMU ${D.final_free_pct}% drift · IDR+Map ${D.final_mm_pct}% drift`; }
+  requestAnimationFrame(loop);
+}
+el('play').onclick=()=>{playing=!playing;el('play').textContent=playing?'❚❚':'▶';
+  if(i>=F.length-1){i=0;rebuild(0);}};
+el('restart').onclick=()=>{i=0;playing=false;el('play').textContent='▶';rebuild(0);map.setView(D.center,16);};
+el('speed').oninput=e=>{speed=+e.target.value;el('spdlab').textContent=speed+'×';};
+
+rebuild(0); requestAnimationFrame(loop);
+el('foot').textContent=`Scenario: ${D.drive} · ${fmt(D.blackout_dist_m)} GNSS-denied · IO-VNBD`;
+</script>
+</body>
+</html>
