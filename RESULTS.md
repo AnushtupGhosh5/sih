@@ -37,6 +37,27 @@ Figures in `artifacts/figures/`: `blackout_50m.png`, `blackout_1km_tunnel.png`,
 | 500 m | 17.7 % | 30 % |
 | 1000 m | 29.3 % | 17 % |
 
+## Map-matching (the heading fix) — 1 km blackouts on real roads
+
+Free inertial DR loses heading beyond ~200 m. Snapping the trajectory to the OSM
+road graph (`src/idr/osm.py`, `map_matching.py`) fixes it: odometry distance walks
+the road network and the gyro only picks the branch at each junction, with heading
+reset to the road bearing on every edge. Evaluated over **369 one-km blackouts**:
+
+| Drive | Free DR (median) | **Map-aided DR (median)** | best | % of blackouts < 10% |
+|---|---|---|---|---|
+| vfa02 (highway) | 21 % | **3.3 %** | 0.1 % | **91 %** |
+| vtb5 (urban) | 39 % | **7.0 %** | 0.1 % | 62 % |
+| vw2 (urban) | 41 % | **4.8 %** | 0.2 % | 70 % |
+
+Demo (`artifacts/figures/mapmatch_1km_demo.png`): a curvy 1 km route with a
+roundabout — free DR drifts **76 %** into open ground, map-aided DR tracks the road
+(incl. the roundabout) to **2.5 %**. Reproduce: `python -m src.idr.evaluate_mapmatch`.
+
+Median 1 km drift now beats the <10 % benchmark on every test drive; the remaining
+urban misses are wrong-turn cases at ambiguous junctions (a consequence of this
+dataset's noisy gyro) — addressable with a better IMU or multi-hypothesis matching.
+
 ## Key engineering findings
 - **Speed is the easy part.** Holding the last GNSS speed (V0) through a blackout is
   within ~1–2 % of oracle speed for position — because over a tunnel the vehicle is
