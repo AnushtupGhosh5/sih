@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+
+# Raw dataset (downloaded via scripts/download_data.py, ~400MB)
+data/raw/
+data/
+
+# Trained model binaries (regenerate via training)
+artifacts/*.pt
+
+# OS
+Thumbs.db
+.DS_Store
