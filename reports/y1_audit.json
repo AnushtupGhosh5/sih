@@ -1,0 +1,625 @@
+{
+  "source_directory": "data/Synchronised V abd S datasets/Categorised IOVNB Dataset/Y (Driver D)/Y1",
+  "smartphone": {
+    "rows": 70285,
+    "columns": 24,
+    "elapsed_time_ms": {
+      "start": 0.048,
+      "end": 6690.809,
+      "span_seconds": 6690.761,
+      "delta_seconds": {
+        "min": -303.608,
+        "p01": 0.09799999999995634,
+        "p50": 0.0999999999999659,
+        "p99": 0.10199999999986176,
+        "max": 0.11200000000008004
+      },
+      "negative_deltas": 3,
+      "zero_deltas": 0,
+      "large_gap_count": 0,
+      "anomalies": [
+        {
+          "after_row": 301,
+          "delta_seconds": -30.132
+        },
+        {
+          "after_row": 337,
+          "delta_seconds": -3.494
+        },
+        {
+          "after_row": 3374,
+          "delta_seconds": -303.608
+        }
+      ]
+    },
+    "date_timestamp": {
+      "start": 1567188765.703,
+      "end": 1567196157.021,
+      "span_seconds": 7391.317999839783,
+      "delta_seconds": {
+        "min": 0.0009999275207519531,
+        "p01": 0.09800004959106445,
+        "p50": 0.09999990463256836,
+        "p99": 0.10199999809265137,
+        "max": 248.88000011444092
+      },
+      "negative_deltas": 0,
+      "zero_deltas": 0,
+      "large_gap_count": 3,
+      "anomalies": [
+        {
+          "after_row": 301,
+          "delta_seconds": 6.006999969482422
+        },
+        {
+          "after_row": 337,
+          "delta_seconds": 108.43600010871887
+        },
+        {
+          "after_row": 3374,
+          "delta_seconds": 248.88000011444092
+        }
+      ]
+    },
+    "gps_speed_invalid": 4,
+    "gps_orientation_invalid": 94,
+    "numeric_columns": [
+      {
+        "index": 0,
+        "name": "GPS LATITUDE (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 52.394756,
+        "max": 52.470875,
+        "mean": 52.422806696592446,
+        "unique": 699
+      },
+      {
+        "index": 1,
+        "name": "GPS LONGITUDE (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -1.545744,
+        "max": -1.47026,
+        "mean": -1.5060992971757843,
+        "unique": 716
+      },
+      {
+        "index": 2,
+        "name": "GPS ALTITUDE (m)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 123.57,
+        "max": 169.29,
+        "mean": 146.49867368570818,
+        "unique": 651
+      },
+      {
+        "index": 3,
+        "name": "GPS SPEED (Kmh)",
+        "valid": 70281,
+        "invalid": 4,
+        "min": 0.0,
+        "max": 21.53,
+        "mean": 8.483957684153612,
+        "unique": 564
+      },
+      {
+        "index": 4,
+        "name": "GPS ACCURACY (m)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 1.0,
+        "max": 24.0,
+        "mean": 3.25862479903251,
+        "unique": 10
+      },
+      {
+        "index": 5,
+        "name": "GPS ORIENTATION (\u00b0)",
+        "valid": 70191,
+        "invalid": 94,
+        "min": 0.05,
+        "max": 359.73,
+        "mean": 183.13449131655057,
+        "unique": 709
+      },
+      {
+        "index": 7,
+        "name": "TIME SINCE START (ms)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 14.0,
+        "max": 6690809.0,
+        "mean": 3191420.2864338052,
+        "unique": 70284
+      },
+      {
+        "index": 9,
+        "name": "ACCELEROMETER X (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -35.619,
+        "max": 7.4589,
+        "mean": -0.015113174930639538,
+        "unique": 22887
+      },
+      {
+        "index": 10,
+        "name": "ACCELEROMETER Y (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -10.0653,
+        "max": 17.4006,
+        "mean": 0.04641991036494273,
+        "unique": 23442
+      },
+      {
+        "index": 11,
+        "name": "ACCELEROMETER Z (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -17.1479,
+        "max": 17.0127,
+        "mean": 9.887130187095396,
+        "unique": 23123
+      },
+      {
+        "index": 12,
+        "name": "GRAVITY X (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -4.3933,
+        "max": 2.164,
+        "mean": -2.2496976595290594e-05,
+        "unique": 3270
+      },
+      {
+        "index": 13,
+        "name": "GRAVITY Y (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -3.4243,
+        "max": 0.8607,
+        "mean": -0.00044450024898627015,
+        "unique": 3174
+      },
+      {
+        "index": 14,
+        "name": "GRAVITY Z (m/s\ufffd)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 8.7671,
+        "max": 9.8067,
+        "mean": 9.806388434232055,
+        "unique": 204
+      },
+      {
+        "index": 15,
+        "name": "GYROSCOPE Yaw (rad/s)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -9.7277,
+        "max": 3.6466,
+        "mean": -0.00029622679092267205,
+        "unique": 2262
+      },
+      {
+        "index": 16,
+        "name": "GYROSCOPE Pitch (rad/s)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -10.8728,
+        "max": 13.9119,
+        "mean": -0.010324474638969908,
+        "unique": 2455
+      },
+      {
+        "index": 17,
+        "name": "GYROSCOPE Roll (rad/s)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -3.9086,
+        "max": 12.8719,
+        "mean": 0.002414996087358611,
+        "unique": 1214
+      },
+      {
+        "index": 18,
+        "name": "MAGNETIC FIELD X (\u03bcT)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -49.44,
+        "max": 31.44,
+        "mean": -8.093757131678167,
+        "unique": 814
+      },
+      {
+        "index": 19,
+        "name": "MAGNETIC FIELD Y (\u03bcT)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -52.02,
+        "max": 53.46,
+        "mean": -13.965564487443977,
+        "unique": 738
+      },
+      {
+        "index": 20,
+        "name": "MAGNETIC FIELD Z (\u03bcT)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 8.16,
+        "max": 78.48,
+        "mean": 41.78932005406559,
+        "unique": 924
+      },
+      {
+        "index": 21,
+        "name": "ORIENTATION (Yaw) (\u00b0)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 360.0,
+        "mean": 197.56355694671694,
+        "unique": 19124
+      },
+      {
+        "index": 22,
+        "name": "ORIENTATION (Pitch) (\u00b0)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -89.97,
+        "max": 84.27,
+        "mean": -80.37771814754215,
+        "unique": 2679
+      },
+      {
+        "index": 23,
+        "name": "ORIENTATION (Roll ) (\u00b0)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -180.0,
+        "max": 180.0,
+        "mean": -15.651322899622963,
+        "unique": 17509
+      }
+    ]
+  },
+  "vehicle": {
+    "rows": 70285,
+    "columns": 29,
+    "time_since_day_start": {
+      "start": 61959.9,
+      "end": 69626.7,
+      "span_seconds": 7666.799999999996,
+      "delta_seconds": {
+        "min": 0.09900000001653098,
+        "p01": 0.09999999999126885,
+        "p50": 0.09999999999854481,
+        "p99": 0.10000000000582077,
+        "max": 384.6000000000058
+      },
+      "negative_deltas": 0,
+      "zero_deltas": 0,
+      "large_gap_count": 2,
+      "anomalies": [
+        {
+          "after_row": 4557,
+          "delta_seconds": 254.0
+        },
+        {
+          "after_row": 70099,
+          "delta_seconds": 384.6000000000058
+        }
+      ]
+    },
+    "velocity_indicated_speed_correlation": 0.8761171562561123,
+    "constant_numeric_columns": [
+      "Clutch Position (0 or 1)"
+    ],
+    "numeric_columns": [
+      {
+        "index": 0,
+        "name": "No of GPS Satellites Available",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 140.0,
+        "mean": 119.08910862915273,
+        "unique": 19
+      },
+      {
+        "index": 1,
+        "name": "Time Since Start of Day (seconds)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 61959.9,
+        "max": 69626.7,
+        "mean": 65712.54657894287,
+        "unique": 70285
+      },
+      {
+        "index": 2,
+        "name": "Latitude (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 52.3947335,
+        "max": 52.470899100000004,
+        "mean": 52.42265236978729,
+        "unique": 58974
+      },
+      {
+        "index": 3,
+        "name": "Longitude (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -1.5457938,
+        "max": -1.4701938,
+        "mean": -1.5057152190510066,
+        "unique": 60158
+      },
+      {
+        "index": 4,
+        "name": "Velocity (km/hr)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 87.48700000000001,
+        "mean": 29.98393253183467,
+        "unique": 18003
+      },
+      {
+        "index": 5,
+        "name": "Heading (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.013000000000000001,
+        "max": 359.99800000000005,
+        "mean": 184.3804451874511,
+        "unique": 56009
+      },
+      {
+        "index": 6,
+        "name": "Height (km)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 72.57,
+        "max": 164.75,
+        "mean": 104.94088653339973,
+        "unique": 5623
+      },
+      {
+        "index": 7,
+        "name": "Vertical velocity (km/hr)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -4.61,
+        "max": 8.63,
+        "mean": 0.025668919399587396,
+        "unique": 606
+      },
+      {
+        "index": 8,
+        "name": "Sample period (seconds)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.099,
+        "max": 0.10099999999999999,
+        "mean": 0.1,
+        "unique": 3
+      },
+      {
+        "index": 9,
+        "name": "Steering Angle (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 527.6,
+        "mean": 74.24712605292437,
+        "unique": 3574
+      },
+      {
+        "index": 10,
+        "name": "Wheel Speed Front Left (rad/sec)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 78.64999,
+        "mean": 28.68378241289322,
+        "unique": 7197
+      },
+      {
+        "index": 11,
+        "name": "Wheel Speed Front Right (rad/sec)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 78.59999,
+        "mean": 28.621200811429183,
+        "unique": 7180
+      },
+      {
+        "index": 12,
+        "name": "Wheel Speed Rear Left (rad/sec)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 78.64,
+        "mean": 28.607253277402005,
+        "unique": 7196
+      },
+      {
+        "index": 13,
+        "name": "Wheel Speed Rear Right (rad/sec)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 78.23,
+        "mean": 28.4808486341723,
+        "unique": 7155
+      },
+      {
+        "index": 14,
+        "name": "Yaw Rate (deg/sec)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -62.89999,
+        "max": 66.60001,
+        "mean": -0.5317954318830477,
+        "unique": 906
+      },
+      {
+        "index": 15,
+        "name": "Indicated Vehicle Speed (km/hr)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 78.53,
+        "mean": 28.6501503700562,
+        "unique": 7263
+      },
+      {
+        "index": 16,
+        "name": "Indicated Longitudinal Acceleration (g)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -0.8506800999999999,
+        "max": 0.36006,
+        "mean": -0.003803553666785232,
+        "unique": 99
+      },
+      {
+        "index": 17,
+        "name": "Indicated Lateral Acceleration (g)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -0.7497001,
+        "max": 0.72012,
+        "mean": -0.009670271375186739,
+        "unique": 137
+      },
+      {
+        "index": 18,
+        "name": "Handbrake (0 or 1)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.012150529985060823,
+        "unique": 2
+      },
+      {
+        "index": 19,
+        "name": "Gear Requested (Number fof gear employed 1-5)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 14.0,
+        "mean": 3.2271323895568043,
+        "unique": 8
+      },
+      {
+        "index": 20,
+        "name": "Gear (Number fof gear employed 1-5)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 3.0,
+        "mean": 2.7478978444902897,
+        "unique": 4
+      },
+      {
+        "index": 21,
+        "name": "Engine Speed (rev/min)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 4623.0,
+        "mean": 1360.3291456213985,
+        "unique": 2218
+      },
+      {
+        "index": 22,
+        "name": "Coolant Temperature (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 105.0,
+        "mean": 86.21653268834032,
+        "unique": 26
+      },
+      {
+        "index": 23,
+        "name": "Clutch Position (0 or 1)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 0.0,
+        "mean": 0.0,
+        "unique": 1
+      },
+      {
+        "index": 24,
+        "name": "Brake Pressure (psi)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": -1.420013,
+        "max": 87.39999,
+        "mean": 2.847788166722999,
+        "unique": 1935
+      },
+      {
+        "index": 25,
+        "name": "Brake Position (0 or 1)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 1.0,
+        "mean": 0.2822081525218752,
+        "unique": 2
+      },
+      {
+        "index": 26,
+        "name": "Battery Voltage (volts)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 14.2,
+        "mean": 12.936379028242158,
+        "unique": 19
+      },
+      {
+        "index": 27,
+        "name": "Air Temperature (degrees)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 24.75,
+        "mean": 19.94120722771573,
+        "unique": 9
+      },
+      {
+        "index": 28,
+        "name": "Accelerator Pedal Position (0 or 1)",
+        "valid": 70285,
+        "invalid": 0,
+        "min": 0.0,
+        "max": 99.0,
+        "mean": 7.168848260653055,
+        "unique": 149
+      }
+    ]
+  },
+  "row_alignment_diagnostic": {
+    "paired_rows": 70285,
+    "gps_separation_metres": {
+      "mean": 657.0723522616083,
+      "p50": 651.6244754360429,
+      "p95": 1242.4271819493456,
+      "max": 1533.0255572721455
+    },
+    "speed_correlation": 0.07998127091061943,
+    "yaw_rate_correlation": -0.002013595420681532
+  }
+}

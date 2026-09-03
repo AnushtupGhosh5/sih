@@ -1,0 +1,23 @@
+# Local datasets and generated experiment outputs
+/artifacts/
+/data/
+
+# Python caches and environments
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Model checkpoints and generated arrays
+*.pt
+*.pth
+*.cbm
+*.joblib
+*.onnx
+*.npy
+*.npz
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store

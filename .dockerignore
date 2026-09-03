@@ -1,0 +1,4 @@
+# The project is mounted at runtime; only the Dockerfile is needed to build the
+# lightweight wrapper layer.
+**
+!Dockerfile
