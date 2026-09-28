@@ -1,10 +1,13 @@
 # Local datasets and generated experiment outputs
 /artifacts/
 /data/
+data/raw/
 
-# Python caches and environments
+# Python
 __pycache__/
 *.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
 .venv/
 venv/
 
@@ -20,4 +23,5 @@ venv/
 # Editor and OS files
 .idea/
 .vscode/
+Thumbs.db
 .DS_Store
