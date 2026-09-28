@@ -589,7 +589,7 @@ def write_report(metrics: dict, output: Path) -> None:
              "receives IMU and that fixed IMU-derived projection only, predicts longitudinal acceleration and yaw rate, and is trained "
              "through differentiable speed/heading/position integration.", "",
              f"Best epoch: **{metrics['best_epoch']}**. Split: **{metrics['split']}**.", "",
-             "| Blackout | Episodes | Velocity MAE | Hold MAE | Final abs. velocity | Within +/-5 | Distance drift | Endpoint position drift |", 
+             "| Blackout | Episodes | Velocity MAE | Hold MAE | Final abs. velocity | Within +/-5 | Distance drift | Endpoint position drift |",
              "|---:|---:|---:|---:|---:|---:|---:|---:|"]
     for duration, value in metrics["test_blackouts"].items():
         hold = metrics["hold_baseline"][duration]
