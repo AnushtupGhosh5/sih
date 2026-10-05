@@ -24,6 +24,11 @@ class MapAidedReckoner {
   bool anchored = false;
   int junctionsPassed = 0;
 
+  /// Set when the walk reaches a node with no onward edge (end of the
+  /// downloaded area or a cul-de-sac). The position holds at that node; the
+  /// caller decides whether to re-anchor or fall back to free inertial.
+  bool deadEnd = false;
+
   /// Snap onto the road network at the blackout start. Returns false when no
   /// road is within [radius] metres.
   bool anchor(double e0, double n0, double headingRad, {double radius = 60.0}) {
@@ -52,6 +57,7 @@ class MapAidedReckoner {
     _along = ((e0 - f.e) * ux + (n0 - f.n) * uy).clamp(0.0, _segLen);
     heading = graph.bearing(f, t);
     anchored = true;
+    deadEnd = false;
     distance = 0;
     junctionsPassed = 0;
     return true;
@@ -60,7 +66,7 @@ class MapAidedReckoner {
   /// Advance by one IMU step. [yawRate] is the calibrated heading rate
   /// (rad/s, clockwise positive), [v] the speed (m/s).
   void step(double yawRate, double v, double dt) {
-    if (!anchored) return;
+    if (!anchored || deadEnd) return;
     heading += yawRate * dt;
     var remaining = math.max(0.0, v) * dt;
     var guard = 0;
@@ -72,11 +78,13 @@ class MapAidedReckoner {
       } else {
         remaining -= _segLen - _along;
         final to = _to!;
-        var nbrs = to.neighbors.where((n) => !identical(n, _from)).toList();
-        if (nbrs.isEmpty) nbrs = to.neighbors.toList(); // dead end: allow U-turn
+        final nbrs = to.neighbors.where((n) => !identical(n, _from)).toList();
         if (nbrs.isEmpty) {
+          // No onward road: hold at the node instead of bouncing back along
+          // the edge we arrived on (the Python port allowed a U-turn, which
+          // ping-pongs at the border of a downloaded bounding box).
           _along = _segLen;
-          remaining = 0;
+          deadEnd = true;
           break;
         }
         RoadNode? best;

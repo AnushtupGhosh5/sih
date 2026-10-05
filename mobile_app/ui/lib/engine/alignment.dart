@@ -81,8 +81,10 @@ class InVehicleAligner {
   void _attemptZAlignment(double? gpsSpeed) {
     final accelVar = _varianceSum(_accel);
     final gyroVar = _varianceSum(_gyro);
+    // With GNSS confirming a standstill, idling vibration is tolerated
+    // (6x the IMU-only threshold); without it the IMU-only check is strict.
     final stationary = gpsSpeed != null
-        ? (gpsSpeed < 0.2 && accelVar < staticAccelVarThresh)
+        ? (gpsSpeed < 0.2 && accelVar < staticAccelVarThresh * 6)
         : (accelVar < staticAccelVarThresh && gyroVar < staticGyroVarThresh);
     if (!stationary) return;
     final g = _mean(_accel);

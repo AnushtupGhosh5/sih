@@ -15,9 +15,11 @@ class CalSample {
     required this.speed,
     required this.courseRad,
     this.azimuthRad,
-  });
+    double? fixT,
+  }) : fixT = fixT ?? t;
 
   final double t; // seconds
+  final double fixT; // time of the GNSS fix the held speed/course came from
   final Vec3 lin; // linear acceleration (gravity removed), phone frame
   final Vec3 gyro; // rad/s, phone frame
   final Vec3 ghat; // unit gravity direction, phone frame
@@ -125,7 +127,7 @@ class BlackoutCalibrator {
     final dt = 1.0 / fs;
     final n = ((t1 - t0) * fs).floor() + 1;
     final lin = <Vec3>[], gyr = <Vec3>[], gh = <Vec3>[];
-    final sp = <double>[], head = <double>[];
+    final sp = <double>[], head = <double>[], fixT = <double>[];
     final az = <double?>[];
     var j = 0;
     for (var i = 0; i < n; i++) {
@@ -139,6 +141,7 @@ class BlackoutCalibrator {
       gh.add(s.ghat);
       sp.add(s.speed);
       head.add(s.courseRad);
+      fixT.add(s.fixT);
       az.add(s.azimuthRad);
     }
 
@@ -153,22 +156,33 @@ class BlackoutCalibrator {
     final c1 = butterLowpassFiltfilt([for (final v in lin) v.dot(e1)], lowpassHz, fs);
     final c2 = butterLowpassFiltfilt([for (final v in lin) v.dot(e2)], lowpassHz, fs);
 
-    // GNSS-derived longitudinal acceleration and heading rate.
-    final dv = butterLowpassFiltfilt(gradient(interpolateHeld(sp), dt), lowpassHz, fs);
-    final dh = gradient(interpolateHeld(unwrap(head)), dt);
+    // GNSS-derived longitudinal acceleration and heading rate as piecewise-
+    // constant rates between consecutive fixes (their integrals are exact).
+    // Statistics are restricted to the span between the first and last fix
+    // inside the window: a partial interval at either edge would otherwise
+    // mis-state the heading/speed change by up to one fix interval and bias
+    // the gyro/accelerometer bias estimates.
+    final spR = _intervalRates(sp, fixT, dt);
+    final hdR = _intervalRates(unwrap(head), fixT, dt);
+    final dv = butterLowpassFiltfilt(spR.rates, lowpassHz, fs);
+    final dh = hdR.rates;
+    final minSpan = (fs * 3).round();
+    final (s0, s1) = spR.last - spR.first >= minSpan ? (spR.first, spR.last) : (0, n);
+    final (h0, h1) = hdR.last - hdR.first >= minSpan ? (hdR.first, hdR.last) : (0, n);
 
     // Forward axis: horizontal direction whose acceleration best tracks dv/dt.
     Vec3? fwd;
     var bestR = -2.0;
     var bestTh = 0.0;
-    final moving = sp.reduce(math.max) > 2.0 && std(dv) > 0.05;
+    final dvSpan = dv.sublist(s0, s1);
+    final moving = sp.reduce(math.max) > 2.0 && std(dvSpan) > 0.05;
     if (moving) {
       for (var k = 0; k < 180; k++) {
         final th = 2 * math.pi * k / 180;
         final ct = math.cos(th), st = math.sin(th);
-        final af = List<double>.generate(n, (i) => ct * c1[i] + st * c2[i]);
+        final af = List<double>.generate(s1 - s0, (i) => ct * c1[s0 + i] + st * c2[s0 + i]);
         if (std(af) < 1e-6) continue;
-        final r = pearson(af, dv);
+        final r = pearson(af, dvSpan);
         if (r > bestR) {
           bestR = r;
           bestTh = th;
@@ -181,20 +195,24 @@ class BlackoutCalibrator {
     var accelBias = 0.0;
     if (fwd != null) {
       final aF = butterLowpassFiltfilt([for (final v in lin) v.dot(fwd)], lowpassHz, fs);
-      accelBias = mean(List<double>.generate(n, (i) => aF[i] - dv[i]));
+      accelBias = mean(List<double>.generate(s1 - s0, (i) => aF[s0 + i] - dv[s0 + i]));
     }
 
     // Gyro yaw about the live vertical: sign so integrated yaw follows the
     // GNSS heading, bias = mean residual.
-    final yaw = List<double>.generate(n, (i) => gyr[i].dot(gh[i]));
-    final rYaw = pearson(yaw, dh);
+    final yaw = List<double>.generate(h1 - h0, (i) => gyr[h0 + i].dot(gh[h0 + i]));
+    final dhSpan = dh.sublist(h0, h1);
+    final rYaw = pearson(yaw, dhSpan);
+    // The physical sign is fixed by the sensor convention (defaultYawSign);
+    // the data only overrides it when a clear turn makes the correlation
+    // unambiguous.
     final double sign;
-    if (rYaw.isNaN || rYaw.abs() < 0.2) {
+    if (rYaw.isNaN || rYaw.abs() < 0.5) {
       sign = Calibration.defaultYawSign; // too little turning to decide
     } else {
       sign = rYaw > 0 ? 1.0 : -1.0;
     }
-    final yawBias = mean(List<double>.generate(n, (i) => sign * yaw[i] - dh[i]));
+    final yawBias = mean(List<double>.generate(h1 - h0, (i) => sign * yaw[i] - dhSpan[i]));
 
     // Compass azimuth -> vehicle heading offset.
     final diffs = <double>[];
@@ -218,6 +236,35 @@ class BlackoutCalibrator {
       windowSeconds: t1 - t0,
       fromData: true,
     );
+  }
+
+  /// Rate of change of a sample-and-hold GNSS series, piecewise constant
+  /// between fix arrivals (indices where [marks], the fix timestamp, changes).
+  /// [first]/[last] bound the span covered by complete fix intervals; the
+  /// partial edges are filled with the adjacent interval's rate.
+  static ({List<double> rates, int first, int last}) _intervalRates(
+      List<double> x, List<double> marks, double dt) {
+    final n = x.length;
+    final rates = List<double>.filled(n, 0);
+    final knots = <int>[];
+    for (var i = 1; i < n; i++) {
+      if (marks[i] != marks[i - 1]) knots.add(i);
+    }
+    if (knots.length < 2) return (rates: rates, first: 0, last: n);
+    for (var j = 0; j + 1 < knots.length; j++) {
+      final a = knots[j], b = knots[j + 1];
+      final r = (x[b] - x[a]) / ((b - a) * dt);
+      for (var i = a; i < b; i++) {
+        rates[i] = r;
+      }
+    }
+    for (var i = 0; i < knots.first; i++) {
+      rates[i] = rates[knots.first];
+    }
+    for (var i = knots.last; i < n; i++) {
+      rates[i] = rates[knots.last - 1];
+    }
+    return (rates: rates, first: knots.first, last: knots.last);
   }
 
   /// Two orthonormal vectors spanning the plane perpendicular to [ghat].

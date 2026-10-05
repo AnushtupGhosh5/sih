@@ -72,26 +72,45 @@ class _HudMapState extends State<HudMap> with TickerProviderStateMixin {
         .animate(CurvedAnimation(parent: _headingController, curve: Curves.easeInOutCubic));
   }
 
+  DateTime? _lastPosUpdate;
+  DateTime? _lastHeadingUpdate;
+
+  /// Animation length matched to the update cadence: GNSS fixes arrive at
+  /// ~1 Hz and deserve a long eased glide, the dead-reckoning engine emits at
+  /// 10 Hz and needs a short linear hop or the marker would never catch up.
+  static (Duration, Curve) _cadence(DateTime? last, DateTime now, int maxMs) {
+    final gap = last == null ? maxMs : now.difference(last).inMilliseconds;
+    final ms = gap.clamp(60, maxMs);
+    return (Duration(milliseconds: ms), ms < 300 ? Curves.linear : Curves.easeInOutCubic);
+  }
+
   @override
   void didUpdateWidget(HudMap oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final now = DateTime.now();
 
     // Animate position.
     if (oldWidget.position != widget.position) {
+      final (dur, curve) = _cadence(_lastPosUpdate, now, 800);
+      _lastPosUpdate = now;
+      _posController.duration = dur;
       _latAnim = Tween(begin: _currentPos.latitude, end: widget.position.latitude)
-          .animate(CurvedAnimation(parent: _posController, curve: Curves.easeInOutCubic));
+          .animate(CurvedAnimation(parent: _posController, curve: curve));
       _lngAnim = Tween(begin: _currentPos.longitude, end: widget.position.longitude)
-          .animate(CurvedAnimation(parent: _posController, curve: Curves.easeInOutCubic));
+          .animate(CurvedAnimation(parent: _posController, curve: curve));
       _posController.forward(from: 0);
     }
 
     // Animate heading (shortest arc).
     if (oldWidget.heading != widget.heading) {
+      final (dur, curve) = _cadence(_lastHeadingUpdate, now, 500);
+      _lastHeadingUpdate = now;
+      _headingController.duration = dur;
       double diff = widget.heading - _currentHeading;
       if (diff > 180) diff -= 360;
       if (diff < -180) diff += 360;
       _headingAnim = Tween(begin: _currentHeading, end: _currentHeading + diff)
-          .animate(CurvedAnimation(parent: _headingController, curve: Curves.easeInOutCubic));
+          .animate(CurvedAnimation(parent: _headingController, curve: curve));
       _headingController.forward(from: 0);
     }
   }

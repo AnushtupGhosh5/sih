@@ -48,7 +48,8 @@ class SyntheticDrive {
     required double Function(double t) headingRate,
     double h0 = 0,
     double accelNoise = 0.15,
-    double gyroNoise = 0.01,
+    double vibrationPerMs = 0.03, // extra accel noise per m/s of speed (road vibration)
+    double gyroNoise = 0.004,
     Vec3 gyroBias = const Vec3(0.002, -0.001, 0.003),
     Vec3 Function(double t)? gyroBiasAt,
     double gnssAccuracy = 5.0,
@@ -72,7 +73,8 @@ class SyntheticDrive {
       final northVeh = Vec3(math.cos(h), math.sin(h), 0);
       final magVeh = northVeh * 25.0 + const Vec3(0, 0, -40.0);
 
-      final noiseA = Vec3(gauss(accelNoise), gauss(accelNoise), gauss(accelNoise));
+      final sA = accelNoise + vibrationPerMs * v;
+      final noiseA = Vec3(gauss(sA), gauss(sA), gauss(sA));
       final noiseG = Vec3(gauss(gyroNoise), gauss(gyroNoise), gauss(gyroNoise));
       final accelPhone = mount.apply(aVeh) + noiseA;
       imu.add(ImuSample(

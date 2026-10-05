@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show compute;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 
@@ -25,12 +26,18 @@ class _Bbox {
   }
 }
 
+/// Parses an Overpass response and builds the graph off the UI isolate.
+RoadGraph _buildGraph((String body, double lat, double lon) args) {
+  final json = jsonDecode(args.$1) as Map<String, dynamic>;
+  return RoadGraph.fromOverpassJson(json, args.$2, args.$3);
+}
+
 /// Fetches the drivable OpenStreetMap road network around the vehicle from
 /// Overpass while GNSS is available, caches it on disk, and builds the
 /// [RoadGraph] used for map-aided dead reckoning.
 class OsmService {
   OsmService({
-    this.radiusM = 2500,
+    this.radiusM = 2000,
     this.refetchMarginM = 600,
     this.minRefetchSeconds = 60,
     this.endpoint = 'https://overpass-api.de/api/interpreter',
@@ -62,11 +69,18 @@ class OsmService {
     _inFlight = true;
     try {
       final bbox = _Bbox.around(lat, lon, radiusM);
-      final json = await _load(bbox);
-      if (json != null) {
-        graph = RoadGraph.fromOverpassJson(json, lat, lon);
-        _bbox = bbox;
-        lastError = null;
+      final body = await _load(bbox);
+      if (body != null) {
+        final g = await compute(_buildGraph, (body, lat, lon));
+        if (g.edges.isEmpty) {
+          // Overpass answered (often a timeout "remark") without roads: do
+          // not treat this box as covered, so the next attempt retries.
+          lastError = 'no roads in response';
+        } else {
+          graph = g;
+          _bbox = bbox;
+          lastError = null;
+        }
       }
     } catch (e) {
       lastError = e.toString();
@@ -76,7 +90,7 @@ class OsmService {
     return graph;
   }
 
-  Future<Map<String, dynamic>?> _load(_Bbox b) async {
+  Future<String?> _load(_Bbox b) async {
     final key = '${(b.south * 1000).round()}_${(b.west * 1000).round()}_'
         '${(b.north * 1000).round()}_${(b.east * 1000).round()}';
     File? cache;
@@ -84,7 +98,7 @@ class OsmService {
       final dir = await getApplicationDocumentsDirectory();
       cache = File('${dir.path}/osm_cache/$key.json');
       if (await cache.exists() && await cache.length() > 100) {
-        return jsonDecode(await cache.readAsString()) as Map<String, dynamic>;
+        return await cache.readAsString();
       }
     } catch (_) {
       cache = null;
@@ -99,13 +113,13 @@ class OsmService {
     if (resp.statusCode != 200) {
       throw HttpException('Overpass HTTP ${resp.statusCode}');
     }
-    final json = jsonDecode(resp.body) as Map<String, dynamic>;
-    if (cache != null) {
+    final body = resp.body;
+    if (cache != null && body.contains('"elements"')) {
       try {
         await cache.parent.create(recursive: true);
-        await cache.writeAsString(resp.body);
+        await cache.writeAsString(body);
       } catch (_) {}
     }
-    return json;
+    return body;
   }
 }

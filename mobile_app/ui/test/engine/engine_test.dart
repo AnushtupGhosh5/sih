@@ -141,6 +141,38 @@ void main() {
     expect(r.errorM, lessThan(10));
   });
 
+  test('blackout that starts at a standstill: stop detected, then speed integrated from zero', () {
+    // Drive, brake to a stop at 45-50 s, GNSS lost at 52 s while stopped,
+    // pull away at 60 s inside the outage, cruise at 12 m/s until 100 s.
+    double speed(double t) {
+      if (t < 3) return 0;
+      if (t < 13) return 1.5 * (t - 3);
+      if (t < 45) return 15;
+      if (t < 50) return 15 - 3.0 * (t - 45);
+      if (t < 60) return 0;
+      if (t < 66) return 2.0 * (t - 60);
+      return 12;
+    }
+
+    final drive = SyntheticDrive(mount: mount, seed: 21)
+      ..simulate(duration: 105, speed: speed, headingRate: (t) => (t >= 20 && t < 28) ? (math.pi / 2) / 8 : 0);
+    final engine = NavigationEngine();
+    NavState? atEnd;
+    var stoppedSpeedSeen = double.infinity;
+    replayDrive(engine, drive, blackouts: [(52, 101)], onState: (tt, s) {
+      if (tt > 57 && tt < 60) stoppedSpeedSeen = math.min(stoppedSpeedSeen, s.speedMs);
+      if ((tt - 99.9).abs() < 0.03) atEnd = s;
+    });
+    expect(stoppedSpeedSeen, lessThan(0.05)); // ZUPT zeroed the held speed
+    expect(atEnd, isNotNull);
+    expect(atEnd!.mode, NavMode.deadReckoning);
+    expect(atEnd!.speedMs, closeTo(12, 2.0)); // integrated back up from zero
+    final truth = drive.truthAt(drive.imu.first.t + 99.9);
+    final err = distanceM(atEnd!.lat, atEnd!.lon, truth.lat, truth.lon);
+    final travelled = 6 * 6 + 12 * 34; // ~444 m since pulling away
+    expect(err / travelled, lessThan(0.10), reason: 'drift ${err.toStringAsFixed(1)} m over $travelled m');
+  });
+
   test('never dead-reckons before the first fix', () {
     final drive = SyntheticDrive(mount: Mat3.identity, seed: 1)
       ..simulate(duration: 5, speed: (_) => 0, headingRate: (_) => 0);

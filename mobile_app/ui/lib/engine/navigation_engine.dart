@@ -106,7 +106,7 @@ class NavigationEngine {
     this.emitInterval = 0.1,
     this.gravityTau = 1.0,
     this.imuRate = 20.0,
-    this.compassGain = 0.02,
+    this.compassGain = 0.0,
   })  : monitor = monitor ?? GnssMonitor(),
         _aligner = InVehicleAligner(samplingRate: imuRate),
         _calibrator = BlackoutCalibrator(windowSeconds: 30, minSeconds: 8, fs: 10);
@@ -116,6 +116,11 @@ class NavigationEngine {
   final double emitInterval;
   final double gravityTau;
   final double imuRate;
+
+  /// Weak compass pull applied to the free-inertial heading when the compass
+  /// offset calibrated cleanly. Off by default: in-vehicle and in-tunnel
+  /// magnetometers are unreliable (steel, electrics), and the desktop results
+  /// were obtained with gyro-only heading.
   final double compassGain;
 
   /// Offline road network used for map-aided dead reckoning (optional).
@@ -243,6 +248,7 @@ class NavigationEngine {
             speed: fix.speedMs,
             courseRad: course,
             azimuthRad: az,
+            fixT: fix.t,
           ));
           _mode = NavMode.gnssIns;
         } else {
@@ -267,9 +273,22 @@ class NavigationEngine {
         compassHeading: compass,
         stationary: stationary,
       );
-      final m = _mapDr;
+      var m = _mapDr;
       if (m != null) {
         m.step(dr.yawRate(s.gyro, ghat), dr.v, dt);
+        if (m.deadEnd) {
+          // Ran off the downloaded road network (or a genuine cul-de-sac):
+          // try to re-anchor at the free-inertial position, else continue
+          // free inertial.
+          final g = roadGraph!;
+          final fp = dr.position;
+          final enu = latLonToEnu(fp.lat, fp.lon, g.lat0, g.lon0);
+          final again = MapAidedReckoner(g);
+          m = again.anchor(enu.e, enu.n, dr.heading) ? again : null;
+          _mapDr = m;
+        }
+      }
+      if (m != null) {
         final p = m.latLon;
         _lat = p.lat;
         _lon = p.lon;
@@ -294,10 +313,13 @@ class NavigationEngine {
 
   DeadReckoner _seedReckoner(GnssFix f, Calibration cal) {
     final h0 = f.speedMs > 1.0 ? degToRad(f.courseDeg) : (_lastMovingCourseRad ?? _headingRad);
+    // GNSS speed jitters by a few tenths of a m/s at rest; a reckoner seeded
+    // at rest should start from exactly zero.
+    final v0 = f.speedMs < 0.5 ? 0.0 : f.speedMs;
     return DeadReckoner(
       lat0: f.lat,
       lon0: f.lon,
-      v0: f.speedMs,
+      v0: v0,
       h0: h0,
       cal: cal,
       compassGain: cal.compassUsable ? compassGain : 0.0,
@@ -406,10 +428,14 @@ class _StationaryDetector {
   final ListQueue<double> _gyr = ListQueue<double>();
   double _since = double.nan;
 
+  // Tunables: real road vibration at speed keeps the |linear accel| variance
+  // well above 0.03 (m/s^2)^2; engine idling at a stop sits below it on a
+  // dashboard mount. Verify on the target phone before the finale.
   double window = 1.0;
   double holdSeconds = 2.0;
-  double accelVarThresh = 0.02;
-  double gyroMeanThresh = 0.015;
+  double accelVarThresh = 0.03;
+  double accelMeanThresh = 0.6; // sustained |linear accel| above this = pulling away
+  double gyroMeanThresh = 0.02;
 
   bool update(double t, double linNorm, double gyroNorm) {
     _t.addLast(t);
@@ -421,7 +447,12 @@ class _StationaryDetector {
       _gyr.removeFirst();
     }
     if (_lin.length < 5) return false;
-    final quiet = variance(_lin.toList()) < accelVarThresh && mean(_gyr.toList()) < gyroMeanThresh;
+    final lin = _lin.toList();
+    // Variance alone misses a smooth pull-away (low vibration at low speed);
+    // the mean catches the sustained acceleration and releases the ZUPT.
+    final quiet = variance(lin) < accelVarThresh &&
+        mean(lin) < accelMeanThresh &&
+        mean(_gyr.toList()) < gyroMeanThresh;
     if (!quiet) {
       _since = double.nan;
       return false;

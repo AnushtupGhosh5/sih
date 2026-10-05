@@ -74,6 +74,23 @@ void main() {
     expect(m.heading, closeTo(0.0, 1e-9));
   });
 
+  test('a dead end holds position instead of bouncing back', () {
+    final g = RoadGraph.build(
+      lat0: 28.6,
+      lon0: 77.2,
+      nodes: {1: (e: 0.0, n: 0.0), 2: (e: 0.0, n: 300.0)},
+      edges: [(1, 2)],
+    );
+    final m = MapAidedReckoner(g);
+    m.anchor(0, 100, 0.0);
+    for (var t = 0.0; t < 40.0; t += 0.1) {
+      m.step(0.0, 10.0, 0.1);
+    }
+    expect(m.deadEnd, isTrue);
+    expect(m.position.n, closeTo(300, 1e-6));
+    expect(m.position.e, closeTo(0, 1e-6));
+  });
+
   test('builds from Overpass JSON', () {
     final json = {
       'elements': [

@@ -32,8 +32,11 @@ class EngineStatusBar extends StatelessWidget {
     if (s == null) {
       parts.add('WAITING FOR SENSORS');
     } else {
-      parts.add(_alignLabel(s.alignment));
       final cal = s.calibration;
+      // The dead-reckoning path is calibrated by the pre-blackout window; the
+      // stationary aligner is a second, independent source. Either counts.
+      final calibrated = cal != null && cal.fromData && cal.hasForwardAxis;
+      parts.add(calibrated ? 'ALIGNED' : _alignLabel(s.alignment));
       if (cal != null && cal.fromData) {
         parts.add('CAL ${cal.forwardCorr.clamp(0, 1).toStringAsFixed(2)}');
       } else {
