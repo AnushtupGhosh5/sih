@@ -1,37 +1,63 @@
-# KANABI — SIH 2026 idea submission checklist (PS SIH26168)
+# KANABI — what to do, in order (revised 5 Oct 2026, late evening)
 
-Deadline: 5 Oct 2026 (tonight). Work through this top to bottom.
+Deadline for the idea PPT is tonight. Items 1–3 are the only ones that can
+cost us the screening. Everything else is for the finale.
 
-## 1. The deck (must-do)
+## Tonight (blocking)
 
-- [ ] Open `KANABI_SIH26168_IdeaPPT.pptx` (built from the official SIH template, 6 slides).
-- [ ] Slide 1: replace `<Team ID from portal>` with the real Team ID from the SIH portal / college SPOC.
-- [ ] Confirm **Theme = Miscellaneous** (the internal-round PDF said "Smart Vehicles"; the official catalogue lists Miscellaneous for SIH26168).
-- [ ] Read every slide once; fix any wording you disagree with, but keep it at 6 slides and on the template (SIH rule).
-- [ ] Export to PDF too (File → Export) and keep both files. Upload whatever the portal / SPOC asks for (usually PPT or PDF).
+1. **Slide 1: Team ID.** Open `KANABI_SIH26168_IdeaPPT.pptx`, replace the red
+   `<Team ID from portal>` with the real Team ID. Keep Theme = Miscellaneous.
+   Re-export the PDF (File → Export). Upload PPTX or PDF, whichever the portal
+   or SPOC asks for. Keep 6 slides; the template is mandatory.
+2. **Anushtup (repo admin):** make `AnushtupGhosh5/sih` public and set the
+   default branch to `main`. Until then the GitHub link on slide 6 is a 404
+   for judges.
+3. **Check the link** in an incognito window: README with figures, releases
+   `v0.1` and `v0.2` visible.
 
-## 2. GitHub (do this before anyone opens the link) — needs **Anushtup** (repo admin)
+## This week (first real test of the app)
 
-- [ ] Make `AnushtupGhosh5/sih` **public** (Settings → General → Danger zone → Change visibility). It is private today, so the link on the deck shows a 404 to judges.
-- [ ] Set the **default branch to `main`** (Settings → Branches). Today it is `calibration-Abhilash`, which only has the alignment stub.
-- [ ] After that, open https://github.com/AnushtupGhosh5/sih in a private/incognito window and check the README with figures shows up.
+4. Install `app-release.apk` (v0.2, engine on device) on an Android phone.
+   Grant location and sensor permissions. Mount it on the dashboard.
+5. Drive 2–3 minutes with GPS. The status strip should show
+   `ALIGNED · CAL 0.xx · MAP n.nk`. If it stays `ALIGNING · CAL —` after a few
+   accelerations, or `MAP —` after a minute online, note it.
+6. While moving at a steady speed, tap **SIMULATE TUNNEL**. The dot must keep
+   moving, the trail turns orange, the readout counts metres and seconds.
+   After 30–60 s tap **END TUNNEL** and write down the drift line
+   (`LAST DR … m · … m OFF (… %)`). Repeat with a turn, and once while stopped
+   at a light. Send the numbers and any oddity (dot stuck, wrong speed,
+   wrong turn) back to Nilesh so the thresholds can be tuned.
+7. If an underpass or flyover underside is nearby, drive through it with the
+   app running and screen-record it. That recording is the demo.
 
-Already done tonight (by Nilesh via Claude):
-- README.md with results table, architecture, reproduce steps and figures pushed to `main`.
-- `docs/figures/` with the position plots added (artifacts/ was git-ignored, so judges could not see any plot before).
-- Release `v0.1-idea-submission` (HMI-only APK) and `v0.2-on-device-engine` (`app-release.apk`: alignment, calibration, dead reckoning and map-matching now run on the phone; `flutter test` passes 18 engine tests).
+## Before screening / finale (ranked by value per day of work)
 
-## 3. Optional but strong (if there is time before the upload)
+8. **Demo video** (1 day): dashboard view + screen recording, 60 s, with the
+   drift readout at the end. Link on slide 6 and in the README.
+9. **CSV logger + own data** (1–2 days): log IMU + GNSS from the app, record
+   Kolkata drives (car and scooter), run the desktop pipeline with simulated
+   blackouts, add the results next to the IO-VNBD ones.
+10. **Edge engine CLI** (1 day): `python -m edge_engine --imu file.csv --rate 200`.
+    Replaces the stub, answers "edge deployable, 200 Hz", and handles the
+    datasets judges provide at screening.
+11. **Bundle the venue map** (half a day): download the OSM road graph of the
+    finale city and ship it in the APK so map-matching works offline.
+12. **Fusion on the phone** (1–2 days): small Kalman filter for GNSS+INS.
+13. **Multi-hypothesis map-matching** (1–2 days) and **two-wheeler lean
+    handling** (1 day) if time allows.
+14. **Repo hygiene** (1 hour): delete or fill the empty stubs
+    (`edge_engine/`, `src/deficit_handler/`, `src/filtering/`,
+    `src/map_matching/`), remove committed `__pycache__`, add a LICENSE and a
+    GitHub Actions workflow that runs `flutter test` and the Python tests.
+15. **Rehearse** the 6 slides in under 5 minutes and the Q&A list in
+    `REVIEW_2026-10-05.md` §4.8. Everyone must be able to explain why heading
+    is the hard part and what map-matching does.
 
-- [ ] Install `app-release.apk` (v0.2) on an Android phone, drive 30 s with GPS, tap **SIMULATE TUNNEL**, watch the dot keep moving, tap **END TUNNEL** and note the measured drift. Record it; it is the demo.
+## Already done (tonight)
 
-- [ ] Record a 30–60 s screen capture of `demo/index.html` (the replay) and put the link on slide 6 or in the README.
-- [ ] Run `python -m pytest src/alignment src/sensor_fusion` once on a clean clone to be sure tests pass as claimed.
-- [ ] Ask Ritu to double-check the numbers on slide 4 against `RESULTS.md` (they were copied from it verbatim).
-
-## 4. What judges look for at screening (from the PS text)
-
-- Preliminary AI models **and position plots inferred from a subset of IO-VNBD** — slide 2 and slide 4 carry these.
-- All six expected modules named: alignment/calibration, AI speed & vibration filter, map-matching + NHC, GNSS+INS fusion, GNSS deficit handler, real-time navigation UI — slide 3 covers each.
-- Benchmark: < 10 % drift (e.g. < 5 m over 50 m, < 100 m over 1 km), 10 Hz on phone, ~200 Hz on edge engine — slide 4 and slide 5.
-- Edge-deployable engine for non-phone IMUs — mentioned on slides 2, 3 and 4.
+- Official-template deck (6 slides) with IO-VNBD position plots and numbers.
+- README with results, architecture and figures on `main`; `docs/figures/`.
+- Engine ported to the phone (pure Dart), 20 engine tests passing, review
+  fixes applied (see `REVIEW_2026-10-05.md` §2).
+- Releases `v0.1-idea-submission` (HMI only) and `v0.2-on-device-engine`.
