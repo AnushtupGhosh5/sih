@@ -1,0 +1,25 @@
+# Core dependencies for training/evaluating the dead-reckoning, calibration,
+# and sensor-fusion models (src/, scripts/, training/, edge_engine/).
+#
+# Install with:
+#   python3 -m venv .venv && source .venv/bin/activate
+#   pip install -r requirements.txt
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+torch
+catboost
+joblib
+networkx
+shapely
+
+# Optional: only needed for training/sensor_fusion/export.py and the ONNX
+# runtime check in src/sensor_fusion/lstm_predictor.py (exporting trained
+# models to ONNX / TFLite for on-device inference). Core training and
+# evaluation scripts run without these.
+# onnx
+# onnxruntime
+# onnx-tf
+# tensorflow

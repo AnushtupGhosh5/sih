@@ -1,0 +1,30 @@
+# Local datasets and generated experiment outputs
+/artifacts/
+/data/
+data/raw/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Model checkpoints and generated arrays
+*.pt
+*.pth
+*.cbm
+*.joblib
+*.onnx
+*.npy
+*.npz
+
+# Editor and OS files
+.idea/
+.vscode/
+Thumbs.db
+.DS_Store
+
+.claude/
+.agents/
