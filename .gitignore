@@ -25,3 +25,6 @@ venv/
 .vscode/
 Thumbs.db
 .DS_Store
+
+.claude/
+.agents/
