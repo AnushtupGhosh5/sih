@@ -18,11 +18,19 @@ class HudMap extends StatefulWidget {
   final double heading; // degrees
   final bool isGnssMode;
 
+  /// Dead-reckoned path since GNSS was lost.
+  final List<LatLng> trail;
+
+  /// Free inertial solution while the map-aided one is displayed.
+  final LatLng? ghost;
+
   const HudMap({
     super.key,
     required this.position,
     required this.heading,
     required this.isGnssMode,
+    this.trail = const [],
+    this.ghost,
   });
 
   @override
@@ -138,16 +146,41 @@ class _HudMapState extends State<HudMap> with TickerProviderStateMixin {
               ),
             ),
 
-            // Vehicle marker.
+            // Dead-reckoning trail.
+            if (widget.trail.length >= 2)
+              PolylineLayer(
+                polylines: [
+                  Polyline(
+                    points: widget.trail,
+                    color: HudTheme.drAccent,
+                    strokeWidth: 4,
+                  ),
+                ],
+              ),
+
+            // Vehicle marker (+ free-inertial ghost when map-aided).
             MarkerLayer(
               markers: [
+                if (widget.ghost != null)
+                  Marker(
+                    point: widget.ghost!,
+                    width: 16,
+                    height: 16,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: HudTheme.drAccent.withValues(alpha: 0.35),
+                        border: Border.all(color: HudTheme.drAccent, width: 1.5),
+                      ),
+                    ),
+                  ),
                 Marker(
                   point: animPos,
                   width: 48,
                   height: 48,
                   child: Transform.rotate(
                     angle: _currentHeading * (pi / 180),
-                    child: _VehicleArrow(color: accent),
+                    child: _VehicleArrow(color: widget.isGnssMode ? accent : HudTheme.drAccent),
                   ),
                 ),
               ],

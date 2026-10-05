@@ -38,7 +38,7 @@ phone IMU + GNSS ─► 1 Align & calibrate ─► 2 AI speed / vibration filter
 * `training/sensor_fusion/` — LSTM training, evaluation and ONNX/TFLite export.
 * `scripts/` — dataset audits, inertial alignment recovery, CatBoost / causal-CNN / unrolled-INS experiments (see [TRAINING.md](TRAINING.md) and [reports/](reports)).
 * `edge_engine/` — edge-deployable variant of the same core for external / FOG IMUs at ~200 Hz.
-* `mobile_app/ui/` — Flutter Android app: live map, speed and heading, IMU sparklines, unmistakable **GNSS + INS** vs **Dead reckoning** banner with debounce and outage timer.
+* `mobile_app/ui/` — Flutter Android app with the **engine running on the phone** (`lib/engine/`, pure Dart): alignment, pre-blackout calibration, GNSS deficit handler, free and map-aided dead reckoning, offline OSM road graph, live drift read-out when GNSS returns, and a *simulate tunnel* switch for demos. See [mobile_app/ui/README.md](mobile_app/ui/README.md).
 * `demo/` — browser replay of a real IO-VNBD drive through a 1 km blackout (open `demo/index.html`).
 
 ![Replay demo](docs/figures/demo_screenshot.png)
@@ -59,8 +59,8 @@ Docker wrappers for the longer training experiments: `./build.sh` then `./run.sh
 
 ## Status
 
-* Done: dead reckoning + map-matching validated on IO-VNBD; alignment and fusion engines implemented in Python with tests; reproducible pipeline; replay demo; Android HMI app.
-* Next: export the engine to TFLite and run alignment + dead reckoning on the phone; quantitative fusion benchmark; 200 Hz FOG-IMU edge build; real-vehicle tunnel test.
+* Done: dead reckoning + map-matching validated on IO-VNBD; alignment and fusion engines implemented in Python with tests; reproducible pipeline; replay demo; Android app running alignment, calibration, dead reckoning and map-matching on-device (unit-tested on synthetic drives).
+* Next: real-vehicle tunnel test of the app; quantitative fusion benchmark and on-device ES-EKF; 200 Hz FOG-IMU edge build; multi-hypothesis map-matching.
 
 ## Team KANABI
 
