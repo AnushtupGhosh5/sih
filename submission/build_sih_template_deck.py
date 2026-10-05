@@ -292,7 +292,7 @@ def slide2(prs):
     add_text(s, 0.35, 1.55, 6.9, 2.2, [
         {"text": "An edge-deployable engine + Android app that keeps lane-level position when GNSS is lost (tunnels, underpasses, parking, urban canyons, jamming) using only the phone's accelerometer, gyroscope, magnetometer and an offline OpenStreetMap graph. No OBD-II, no wheel sensor, no fixed mount.", "bullet": True, "size": 11.5},
         {"text": "Hybrid AI + physics pipeline: in-vehicle alignment & calibration → AI speed/vibration filter (1-D CNN) → bias-corrected INS → map-matching with non-holonomic constraints → AI-augmented error-state Kalman fusion with instant GNSS-deficit switching.", "bullet": True, "size": 11.5},
-        {"text": "Training happens on desktop (IO-VNBD); the lightweight model (32 k params, ONNX/TFLite) runs on the phone at 10 Hz and on the edge engine at ~200 Hz for external/FOG IMUs.", "bullet": True, "size": 11.5},
+        {"text": "Training happens on desktop (IO-VNBD); the engine runs on the phone at sensor rate (pure Dart, no server) and the same core targets the edge engine at ~200 Hz for external/FOG IMUs; the 32 k-param CNN ships via ONNX/TFLite.", "bullet": True, "size": 11.5},
     ], space_after=4)
 
     section_label(s, 0.35, 3.85, 6.9, "How it addresses the problem", ORANGE)
@@ -379,8 +379,8 @@ def slide3(prs):
     add_text(s, 0.35, 5.52, 8.2, 1.4, [
         {"runs": [{"text": "Phase 1 (desktop, done): ", "bold": True, "size": 11, "color": NAVY},
                   {"text": "IO-VNBD loader & synchronisation audit, feature engineering, speed-filter & LSTM training, simulated-blackout evaluation over 369 one-km blackouts, OSM map-matching, browser replay demo.", "size": 11}], "space_after": 3},
-        {"runs": [{"text": "Phase 2 (on-device, in progress): ", "bold": True, "size": 11, "color": NAVY},
-                  {"text": "Flutter app with live GNSS/IMU HUD and mode banner is built (APK); engine export to TFLite and porting of alignment + DR to the phone are next, followed by the 200 Hz edge build.", "size": 11}]},
+        {"runs": [{"text": "Phase 2 (on-device, working): ", "bold": True, "size": 11, "color": NAVY},
+                  {"text": "Android app runs alignment, pre-blackout calibration, dead reckoning and OSM map-matching on the phone (unit-tested on synthetic drives; APK in repo), with a simulate-tunnel switch and live drift read-out on GNSS return. Next: on-device ES-EKF fusion, 200 Hz edge build, real tunnel test.", "size": 11}]},
     ], margin=0.04)
     add_picture_fit(s, HERE / "demo_screenshot.png", 8.7, 5.2, 4.3, 1.7)
 

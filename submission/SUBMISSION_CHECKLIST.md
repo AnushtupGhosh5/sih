@@ -19,9 +19,11 @@ Deadline: 5 Oct 2026 (tonight). Work through this top to bottom.
 Already done tonight (by Nilesh via Claude):
 - README.md with results table, architecture, reproduce steps and figures pushed to `main`.
 - `docs/figures/` with the position plots added (artifacts/ was git-ignored, so judges could not see any plot before).
-- Release `v0.1-idea-submission` with `app-release.apk` attached.
+- Release `v0.1-idea-submission` (HMI-only APK) and `v0.2-on-device-engine` (`app-release.apk`: alignment, calibration, dead reckoning and map-matching now run on the phone; `flutter test` passes 18 engine tests).
 
 ## 3. Optional but strong (if there is time before the upload)
+
+- [ ] Install `app-release.apk` (v0.2) on an Android phone, drive 30 s with GPS, tap **SIMULATE TUNNEL**, watch the dot keep moving, tap **END TUNNEL** and note the measured drift. Record it; it is the demo.
 
 - [ ] Record a 30–60 s screen capture of `demo/index.html` (the replay) and put the link on slide 6 or in the README.
 - [ ] Run `python -m pytest src/alignment src/sensor_fusion` once on a clean clone to be sure tests pass as claimed.
