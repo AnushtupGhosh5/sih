@@ -152,13 +152,13 @@ The app has not yet been driven through a real tunnel. All quantitative results 
 
 ## Team KANABI
 
-| Member | Focus |
-|---|---|
-| Abhilash | Alignment and calibration |
-| Ritu | Dead reckoning, map matching, evaluation |
-| Anushtup | Sensor fusion |
-| Nilesh | Mobile app and integration |
-| Mayukh Saha | Sensor fusion integration |
+| Member | GitHub | Focus |
+|---|---|---|
+| Abhilash | [@Abhil4sh777](https://github.com/Abhil4sh777) | Alignment and calibration |
+| Ritu | [@RITU940](https://github.com/RITU940) | Dead reckoning, map matching, evaluation |
+| Anushtup | [@AnushtupGhosh5](https://github.com/AnushtupGhosh5) | Sensor fusion |
+| Nilesh | [@NoviceNilesh](https://github.com/NoviceNilesh) | Mobile app and integration |
+| Mayukh Saha | [@Quant-ma907](https://github.com/Quant-ma907) | Sensor fusion integration |
 
 ## References
 
