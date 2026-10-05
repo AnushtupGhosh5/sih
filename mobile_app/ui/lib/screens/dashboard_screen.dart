@@ -8,9 +8,11 @@ import 'package:latlong2/latlong.dart';
 import '../engine/navigation_engine.dart';
 import '../engine/vec3.dart';
 import '../services/location_service.dart';
+import '../services/log_service.dart';
 import '../services/osm_service.dart';
 import '../services/sensor_service.dart';
 import '../utils/theme.dart';
+import '../widgets/diagnostics_sheet.dart';
 import '../widgets/drift_counter.dart';
 import '../widgets/engine_status_bar.dart';
 import '../widgets/hud_map.dart';
@@ -32,18 +34,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final SensorService _sensorService = SensorService();
   final NavigationEngine _engine = NavigationEngine();
   final OsmService _osm = OsmService();
+  final LogService _log = LogService();
 
   // ── UI state ─────────────────────────────────────────────────────────
-  NavState? _nav;
-  double _gpsAccuracy = 999;
-  List<double> _accelHistory = [];
-  List<double> _gyroHistory = [];
-  int _sensorTick = 0;
+  final ValueNotifier<NavState?> _nav = ValueNotifier<NavState?>(null);
   bool _mapLoading = false;
+  bool _follow = true;
+  bool _logging = false;
 
   static const LatLng _defaultPosition = LatLng(28.6139, 77.2090); // New Delhi
 
-  // ── Stream subscriptions ─────────────────────────────────────────────
   StreamSubscription<Position>? _posSub;
   StreamSubscription<SensorSnapshot>? _sensorSub;
   StreamSubscription<NavState>? _navSub;
@@ -52,7 +52,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void initState() {
     super.initState();
     _navSub = _engine.states.listen((s) {
-      if (mounted) setState(() => _nav = s);
+      if (!mounted) return;
+      _nav.value = s;
+      setState(() {});
     });
     _locationService.startListening();
     _posSub = _locationService.positionStream.listen(_onPosition);
@@ -61,17 +63,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onPosition(Position pos) {
-    _gpsAccuracy = pos.accuracy;
     final speed = pos.speed.isNaN ? 0.0 : math.max(0.0, pos.speed);
     final course = pos.heading.isNaN ? 0.0 : pos.heading;
-    _engine.onGnss(GnssFix(
+    final fix = GnssFix(
       t: DateTime.now().millisecondsSinceEpoch / 1000.0,
       lat: pos.latitude,
       lon: pos.longitude,
       speedMs: speed,
       courseDeg: course,
-      accuracyM: pos.accuracy,
-    ));
+      accuracyM: pos.accuracy.isNaN ? 999 : pos.accuracy,
+    );
+    _engine.onGnss(fix);
+    _log.gnss(fix);
     _refreshRoads(pos.latitude, pos.longitude);
   }
 
@@ -88,24 +91,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _onSensor(SensorSnapshot snap) {
-    _engine.onImu(ImuSample(
+    final sample = ImuSample(
       t: snap.tSeconds,
       accel: Vec3(snap.accelX, snap.accelY, snap.accelZ),
       linear: Vec3(snap.linX, snap.linY, snap.linZ),
       gyro: Vec3(snap.gyroX, snap.gyroY, snap.gyroZ),
       mag: Vec3(snap.magX, snap.magY, snap.magZ),
-    ));
-    // Sparklines at 5 Hz is plenty.
-    if (++_sensorTick % 4 == 0 && mounted) {
-      setState(() {
-        _accelHistory = List.from(_sensorService.accelHistory);
-        _gyroHistory = List.from(_sensorService.gyroHistory);
-      });
-    }
+    );
+    _engine.onImu(sample);
+    _log.imu(sample, state: _engine.current);
   }
 
-  void _toggleSimulate() {
-    setState(() => _engine.simulateBlackout = !_engine.simulateBlackout);
+  void _setSimulate(bool v) => setState(() => _engine.simulateBlackout = v);
+
+  Future<void> _setLogging(bool v) async {
+    if (v) {
+      await _log.start();
+    } else {
+      await _log.stop();
+    }
+    if (mounted) setState(() => _logging = v);
+  }
+
+  void _openDiagnostics() {
+    DiagnosticsSheet.show(
+      context,
+      DiagnosticsSheet(
+        state: _nav,
+        simulate: _engine.simulateBlackout,
+        logging: _logging,
+        logPath: _log.path,
+        useCompass: _engine.useCompass,
+        follow: _follow,
+        mapError: _osm.lastError,
+        onSimulate: _setSimulate,
+        onLogging: _setLogging,
+        onCompass: (v) => setState(() => _engine.useCompass = v),
+        onFollow: (v) => setState(() => _follow = v),
+      ),
+    );
   }
 
   @override
@@ -116,19 +140,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _locationService.dispose();
     _sensorService.dispose();
     _engine.dispose();
+    _log.stop();
+    _nav.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final nav = _nav;
+    final nav = _nav.value;
     final hasFix = nav?.hasFix ?? false;
     final position = hasFix ? LatLng(nav!.lat, nav.lon) : _defaultPosition;
     final heading = nav?.headingDeg ?? 0.0;
-    final isDr = nav?.isDeadReckoning ?? false;
-    final trail = nav == null
-        ? const <LatLng>[]
-        : [for (final p in nav.trail) LatLng(p.lat, p.lon)];
+    final mode = nav?.mode ?? NavMode.degraded;
+    final isDr = mode == NavMode.deadReckoning;
+    final trail = nav == null ? const <LatLng>[] : [for (final p in nav.trail) LatLng(p.lat, p.lon)];
+    final gnssTrack = nav == null ? const <LatLng>[] : [for (final p in nav.gnssTrack) LatLng(p.lat, p.lon)];
     final ghostPt = nav?.freeDrPosition;
     final ghost = ghostPt == null ? null : LatLng(ghostPt.lat, ghostPt.lon);
     final padding = MediaQuery.of(context).padding;
@@ -137,14 +163,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: HudTheme.background,
       body: Stack(
         children: [
-          // ── Full-screen map ────────────────────────────────────
           Positioned.fill(
             child: HudMap(
               position: position,
               heading: heading,
-              isGnssMode: !isDr,
+              mode: mode,
               trail: trail,
+              gnssTrack: gnssTrack,
               ghost: ghost,
+              uncertaintyM: nav?.uncertaintyM,
+              follow: _follow,
+              onUserGesture: () {
+                if (_follow) setState(() => _follow = false);
+              },
             ),
           ),
 
@@ -153,7 +184,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             top: padding.top + 16,
             left: 0,
             right: 0,
-            child: Center(child: ModeBanner(isGnssMode: !isDr)),
+            child: Center(child: ModeBanner(mode: mode, acquiring: !hasFix)),
           ),
 
           // ── Blackout readout (below banner) ───────────────────
@@ -171,9 +202,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
+          // ── Re-centre button (when the user panned away) ──────
+          if (!_follow)
+            Positioned(
+              right: 16,
+              top: padding.top + 130,
+              child: GestureDetector(
+                onTap: () => setState(() => _follow = true),
+                child: HudTheme.glassWrap(
+                  padding: const EdgeInsets.all(12),
+                  borderRadius: 20,
+                  backgroundColor: HudTheme.surface.withValues(alpha: 0.75),
+                  child: const Icon(Icons.my_location, size: 18, color: HudTheme.textPrimary),
+                ),
+              ),
+            ),
+
           // ── Engine status + telemetry (bottom) ────────────────
           Positioned(
-            bottom: padding.bottom + 24,
+            bottom: padding.bottom + 20,
             left: 16,
             right: 16,
             child: Column(
@@ -182,18 +229,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 EngineStatusBar(
                   state: nav,
                   simulate: _engine.simulateBlackout,
+                  logging: _logging,
                   mapLoading: _mapLoading,
-                  onToggleSimulate: _toggleSimulate,
+                  onToggleSimulate: () => _setSimulate(!_engine.simulateBlackout),
+                  onOpenDiagnostics: _openDiagnostics,
                 ),
                 const SizedBox(height: 10),
-                TelemetryPanel(
-                  speedKmh: (nav?.speedMs ?? 0) * 3.6,
-                  heading: heading,
-                  gpsAccuracy: _gpsAccuracy,
-                  isGnssMode: !isDr,
-                  accelHistory: _accelHistory,
-                  gyroHistory: _gyroHistory,
-                ),
+                TelemetryPanel(state: nav),
               ],
             ),
           ),

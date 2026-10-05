@@ -62,8 +62,11 @@ class Calibration {
   final double windowSeconds;
   final bool fromData;
 
-  bool get hasForwardAxis => fwd != null && forwardCorr > 0.3;
+  bool get hasForwardAxis => fwd != null && forwardCorr > 0.5;
   bool get compassUsable => compassR > 0.8;
+
+  /// Orientation of the phone relative to the vehicle, if the forward axis is known.
+  MountAngles? get mount => fwd == null ? null : MountAngles.from(up: ghat, fwd: fwd!);
 
   factory Calibration.fallback(Vec3 ghat) => Calibration(
         ghat: ghat,
@@ -84,6 +87,31 @@ class Calibration {
       'Calibration(fwdCorr=${forwardCorr.toStringAsFixed(2)}, yawSign=$yawSign, '
       'yawBias=${yawBias.toStringAsExponential(2)}, compassR=${compassR.toStringAsFixed(2)}, '
       'window=${windowSeconds.toStringAsFixed(1)}s)';
+}
+
+/// Pitch, roll and yaw of the phone relative to the vehicle frame
+/// (x forward, y left, z up), in degrees, using the Rz(yaw)·Ry(pitch)·Rx(roll)
+/// convention: the rotation that takes vehicle axes into phone axes.
+class MountAngles {
+  const MountAngles(this.pitchDeg, this.rollDeg, this.yawDeg);
+  final double pitchDeg, rollDeg, yawDeg;
+
+  /// [up] and [fwd] are the vehicle up and forward axes expressed in the
+  /// phone frame (unit vectors).
+  factory MountAngles.from({required Vec3 up, required Vec3 fwd}) {
+    final f = fwd.normalized;
+    final u = up.normalized;
+    final left = u.cross(f).normalized;
+    // Columns of R_v2p are the vehicle axes in phone coordinates.
+    final pitch = math.asin((-f.z).clamp(-1.0, 1.0));
+    final yaw = math.atan2(f.y, f.x);
+    final roll = math.atan2(left.z, u.z);
+    return MountAngles(pitch * 180 / math.pi, roll * 180 / math.pi, yaw * 180 / math.pi);
+  }
+
+  @override
+  String toString() =>
+      'P ${pitchDeg.toStringAsFixed(0)}° R ${rollDeg.toStringAsFixed(0)}° Y ${yawDeg.toStringAsFixed(0)}°';
 }
 
 /// Keeps a rolling window of GNSS-available samples and, on demand, estimates
@@ -170,26 +198,41 @@ class BlackoutCalibrator {
     final (s0, s1) = spR.last - spR.first >= minSpan ? (spR.first, spR.last) : (0, n);
     final (h0, h1) = hdR.last - hdR.first >= minSpan ? (hdR.first, hdR.last) : (0, n);
 
-    // Forward axis: horizontal direction whose acceleration best tracks dv/dt.
+    // Forward axis. GNSS predicts the vehicle-frame horizontal acceleration:
+    // forward = dv/dt, lateral (left positive) = -speed * heading rate. The
+    // measured horizontal acceleration (c1, c2) is that vector rotated by the
+    // unknown mount yaw, so the yaw is the closed-form least-squares rotation
+    // (2-D Procrustes) between the two, after removing the means so constant
+    // accelerometer offsets do not bias it. Turns make the fit very well
+    // conditioned; a straight accelerate/brake window still works.
     Vec3? fwd;
     var bestR = -2.0;
-    var bestTh = 0.0;
-    final dvSpan = dv.sublist(s0, s1);
-    final moving = sp.reduce(math.max) > 2.0 && std(dvSpan) > 0.05;
+    final aLeft = butterLowpassFiltfilt(List<double>.generate(n, (i) => -sp[i] * dh[i]), lowpassHz, fs);
+    final lo = math.max(s0, h0), hi = math.min(s1, h1);
+    final (f0, f1) = hi - lo >= minSpan ? (lo, hi) : (0, n);
+    final dvSpan = dv.sublist(f0, f1);
+    final alSpan = aLeft.sublist(f0, f1);
+    // Enough kinematic signal to identify the axis: a sustained acceleration
+    // or a turn. GNSS speed noise alone gives dv/dt scatter of ~0.1 m/s².
+    final moving = sp.reduce(math.max) > 2.0 && (std(dvSpan) > 0.25 || std(alSpan) > 0.4);
     if (moving) {
-      for (var k = 0; k < 180; k++) {
-        final th = 2 * math.pi * k / 180;
-        final ct = math.cos(th), st = math.sin(th);
-        final af = List<double>.generate(s1 - s0, (i) => ct * c1[s0 + i] + st * c2[s0 + i]);
-        if (std(af) < 1e-6) continue;
-        final r = pearson(af, dvSpan);
-        if (r > bestR) {
-          bestR = r;
-          bestTh = th;
-        }
+      final m1 = mean(c1.sublist(f0, f1)), m2 = mean(c2.sublist(f0, f1));
+      final mp1 = mean(dvSpan), mp2 = mean(alSpan);
+      var num = 0.0, den = 0.0;
+      for (var i = f0; i < f1; i++) {
+        final x1 = c1[i] - m1, x2 = c2[i] - m2;
+        final p1 = dv[i] - mp1, p2 = aLeft[i] - mp2;
+        num += x2 * p1 - x1 * p2;
+        den += x1 * p1 + x2 * p2;
       }
-      if (bestR > -2) {
-        fwd = (e1 * math.cos(bestTh) + e2 * math.sin(bestTh)).normalized;
+      if (num.abs() > 1e-9 || den.abs() > 1e-9) {
+        final th = math.atan2(num, den);
+        final ct = math.cos(th), st = math.sin(th);
+        fwd = (e1 * ct + e2 * st).normalized;
+        // Quality: how well the fitted forward and lateral channels track GNSS.
+        final af = List<double>.generate(f1 - f0, (i) => ct * c1[f0 + i] + st * c2[f0 + i]);
+        final al = List<double>.generate(f1 - f0, (i) => -st * c1[f0 + i] + ct * c2[f0 + i]);
+        bestR = math.max(pearson(af, dvSpan), pearson(al, alSpan));
       }
     }
     var accelBias = 0.0;

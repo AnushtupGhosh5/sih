@@ -52,6 +52,8 @@ class SyntheticDrive {
     double gyroNoise = 0.004,
     Vec3 gyroBias = const Vec3(0.002, -0.001, 0.003),
     Vec3 Function(double t)? gyroBiasAt,
+    double? shockEverySeconds, // vertical 15 m/s² pothole spike at this period
+    ({double e, double n}) Function(double t)? gnssOffsetAt, // multipath error on fixes
     double gnssAccuracy = 5.0,
     double gnssPosNoise = 1.0,
     double tStart = 1000.0,
@@ -76,7 +78,10 @@ class SyntheticDrive {
       final sA = accelNoise + vibrationPerMs * v;
       final noiseA = Vec3(gauss(sA), gauss(sA), gauss(sA));
       final noiseG = Vec3(gauss(gyroNoise), gauss(gyroNoise), gauss(gyroNoise));
-      final accelPhone = mount.apply(aVeh) + noiseA;
+      var accelPhone = mount.apply(aVeh) + noiseA;
+      if (shockEverySeconds != null && (tt % shockEverySeconds) < dt * 0.5 && tt > 1) {
+        accelPhone = accelPhone + mount.apply(const Vec3(0, 0, 15.0));
+      }
       imu.add(ImuSample(
         t: t,
         accel: accelPhone,
@@ -89,7 +94,8 @@ class SyntheticDrive {
 
       if (tt >= nextGnss - 1e-9) {
         nextGnss += 1.0;
-        final p = enuToLatLon(e + gauss(gnssPosNoise), nn + gauss(gnssPosNoise), lat0, lon0);
+        final off = gnssOffsetAt?.call(tt) ?? (e: 0.0, n: 0.0);
+        final p = enuToLatLon(e + off.e + gauss(gnssPosNoise), nn + off.n + gauss(gnssPosNoise), lat0, lon0);
         gnss.add(GnssFix(
           t: t,
           lat: p.lat,

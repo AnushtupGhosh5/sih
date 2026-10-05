@@ -24,8 +24,8 @@ class GnssFix {
 class GnssMonitor {
   GnssMonitor({
     this.goodAccuracyM = 20.0,
-    this.degradedAccuracyM = 50.0,
-    this.staleSeconds = 3.0,
+    this.degradedAccuracyM = 40.0,
+    this.staleSeconds = 2.0,
   });
 
   final double goodAccuracyM;

@@ -1,15 +1,18 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 
-/// A tiny, real-time sparkline chart drawn with CustomPaint.
+/// A small real-time strip chart drawn with CustomPaint.
 ///
-/// Renders a neon-colored line with a gradient fill beneath it,
-/// auto-scaling the Y axis to fit the data.
+/// With [minValue]/[maxValue] the vertical scale is fixed (so the trace is
+/// readable and comparable between frames) and a zero baseline is drawn;
+/// otherwise the scale follows the data.
 class SparklineChart extends StatelessWidget {
   final List<double> data;
   final Color lineColor;
   final double height;
   final double width;
+  final double? minValue;
+  final double? maxValue;
 
   const SparklineChart({
     super.key,
@@ -17,6 +20,8 @@ class SparklineChart extends StatelessWidget {
     required this.lineColor,
     this.height = 40,
     this.width = 120,
+    this.minValue,
+    this.maxValue,
   });
 
   @override
@@ -28,6 +33,8 @@ class SparklineChart extends StatelessWidget {
         painter: _SparklinePainter(
           data: data,
           lineColor: lineColor,
+          minValue: minValue,
+          maxValue: maxValue,
         ),
       ),
     );
@@ -37,99 +44,91 @@ class SparklineChart extends StatelessWidget {
 class _SparklinePainter extends CustomPainter {
   final List<double> data;
   final Color lineColor;
+  final double? minValue;
+  final double? maxValue;
 
-  _SparklinePainter({required this.data, required this.lineColor});
+  _SparklinePainter({
+    required this.data,
+    required this.lineColor,
+    this.minValue,
+    this.maxValue,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (data.length < 2) return;
-
-    // Draw chart background / border
-    final borderPaint = Paint()
-      ..color = const Color(0xFF2A2A2A)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), borderPaint);
-
-    // Draw grid lines
     final gridPaint = Paint()
-      ..color = const Color(0xFF2A2A2A)
+      ..color = Colors.white.withValues(alpha: 0.08)
       ..strokeWidth = 1;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, size.width, size.height), const Radius.circular(6)),
+      gridPaint..style = PaintingStyle.stroke,
+    );
 
-    // Horizontal grid
-    for (var i = 1; i < 4; i++) {
-      final y = size.height * (i / 4);
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    double lo, hi;
+    if (minValue != null && maxValue != null) {
+      lo = minValue!;
+      hi = maxValue!;
+    } else if (data.length >= 2) {
+      lo = data.reduce(min);
+      hi = data.reduce(max);
+      if (hi - lo < 0.01) {
+        lo -= 0.5;
+        hi += 0.5;
+      }
+    } else {
+      lo = -1;
+      hi = 1;
     }
-    // Vertical grid
-    for (var i = 1; i < 10; i++) {
-      final x = size.width * (i / 10);
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
+    final range = hi - lo;
+    double yOf(double v) => size.height - ((v - lo) / range).clamp(0.0, 1.0) * size.height;
 
-    final minVal = data.reduce(min);
-    final maxVal = data.reduce(max);
-    final range = (maxVal - minVal).clamp(0.01, double.infinity);
-
-    // Draw true zero baseline if it falls within the current range.
-    if (minVal < 0 && maxVal > 0) {
-      final zeroY = size.height - ((0 - minVal) / range) * size.height;
+    // Zero baseline.
+    if (lo < 0 && hi > 0) {
+      final zeroY = yOf(0);
       final zeroPaint = Paint()
-        ..color = Colors.white.withValues(alpha: 0.3)
+        ..color = Colors.white.withValues(alpha: 0.35)
         ..strokeWidth = 1;
-      
-      for (double x = 0; x < size.width; x += 6) {
+      for (double x = 2; x < size.width; x += 6) {
         canvas.drawLine(Offset(x, zeroY), Offset(x + 3, zeroY), zeroPaint);
       }
     }
 
+    if (data.length < 2) return;
+
     final linePaint = Paint()
-      ..color = lineColor.withValues(alpha: 0.8) // 80% opacity soft white
-      ..strokeWidth = 1.5
+      ..color = lineColor
+      ..strokeWidth = 1.6
       ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
     final fillPaint = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [
-          lineColor.withValues(alpha: 0.3),
-          lineColor.withValues(alpha: 0.0),
-        ],
+        colors: [lineColor.withValues(alpha: 0.22), lineColor.withValues(alpha: 0.0)],
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
 
+    final baseY = (lo < 0 && hi > 0) ? yOf(0) : size.height;
     final linePath = Path();
     final fillPath = Path();
-
     for (var i = 0; i < data.length; i++) {
       final x = (i / (data.length - 1)) * size.width;
-      final y = size.height - ((data[i] - minVal) / range) * size.height;
-
+      final y = yOf(data[i]);
       if (i == 0) {
         linePath.moveTo(x, y);
-        fillPath.moveTo(x, size.height);
+        fillPath.moveTo(x, baseY);
         fillPath.lineTo(x, y);
       } else {
         linePath.lineTo(x, y);
         fillPath.lineTo(x, y);
       }
     }
-
-    // Close fill path.
-    fillPath.lineTo(size.width, size.height);
+    fillPath.lineTo(size.width, baseY);
     fillPath.close();
 
     canvas.drawPath(fillPath, fillPaint);
     canvas.drawPath(linePath, linePaint);
-
-    // Glow effect removed for a cleaner scientific look, or made very subtle.
-    final glowPaint = Paint()
-      ..color = lineColor.withValues(alpha: 0.1)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2);
-    canvas.drawPath(linePath, glowPaint);
   }
 
   @override

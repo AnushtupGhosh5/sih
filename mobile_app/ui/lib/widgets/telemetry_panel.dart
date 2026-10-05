@@ -1,55 +1,59 @@
 import 'package:flutter/material.dart';
+
+import '../engine/navigation_engine.dart';
 import '../utils/compass_utils.dart';
 import '../utils/theme.dart';
 import 'sparkline_chart.dart';
 
-/// Bottom telemetry panel showing speed, heading, accuracy, and sensor sparklines.
+/// Bottom telemetry panel: fused speed and heading, GNSS / mount / uncertainty
+/// read-outs, and the aligned IMU traces (forward acceleration, yaw rate).
 class TelemetryPanel extends StatelessWidget {
-  final double speedKmh;
-  final double heading;
-  final double gpsAccuracy;
-  final bool isGnssMode;
-  final List<double> accelHistory;
-  final List<double> gyroHistory;
+  final NavState? state;
 
-  const TelemetryPanel({
-    super.key,
-    required this.speedKmh,
-    required this.heading,
-    required this.gpsAccuracy,
-    required this.isGnssMode,
-    required this.accelHistory,
-    required this.gyroHistory,
-  });
+  const TelemetryPanel({super.key, required this.state});
 
   @override
   Widget build(BuildContext context) {
-    final accent = HudTheme.textPrimary;
+    final s = state;
+    final speedKmh = (s?.speedMs ?? 0) * 3.6;
+    final heading = s?.headingDeg ?? 0;
+    final isDr = s?.isDeadReckoning ?? false;
+
+    final gnssText = s == null || !s.hasFix
+        ? '— m'
+        : '${s.fixAccuracyM.isFinite ? s.fixAccuracyM.toStringAsFixed(0) : '—'} m · '
+            '${s.fixAgeS.isFinite ? s.fixAgeS.toStringAsFixed(0) : '—'} s';
+    final gnssIcon = switch (s?.gnssHealth) {
+      GnssHealth.good => Icons.gps_fixed,
+      GnssHealth.degraded => Icons.gps_not_fixed,
+      _ => Icons.gps_off,
+    };
+    final mountText = s?.mount == null
+        ? (s?.alignment == AlignmentState.fullyAligned ? 'aligned' : 'calibrating')
+        : s!.mount.toString();
+    final unc = s == null || !s.uncertaintyM.isFinite
+        ? '—'
+        : (s.uncertaintyM >= 100 ? '${(s.uncertaintyM / 1000).toStringAsFixed(1)} km' : '${s.uncertaintyM.toStringAsFixed(0)} m');
+
+    final vib = (s?.vibrationRms ?? 0).clamp(0.0, 3.0) / 3.0;
 
     return HudTheme.glassWrap(
       backgroundColor: HudTheme.surface.withValues(alpha: 0.85),
-      borderRadius: 32,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      borderRadius: 28,
+      padding: const EdgeInsets.fromLTRB(22, 18, 22, 18),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // ── Top row: Speed + Heading ──────────────────────────
+          // ── Speed + heading ────────────────────────────────────
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              // Speed — large prominent number.
               Expanded(
                 flex: 3,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Icon(Icons.speed, size: 14, color: HudTheme.labelMuted),
-                        const SizedBox(width: 4),
-                        Text('SPEED', style: HudTheme.hudLabel()),
-                      ],
-                    ),
+                    _label(Icons.speed, isDr ? 'SPEED · INS' : 'SPEED · FUSED'),
                     const SizedBox(height: 2),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -57,51 +61,94 @@ class TelemetryPanel extends StatelessWidget {
                       children: [
                         TweenAnimationBuilder<double>(
                           tween: Tween(end: speedKmh),
-                          duration: HudTheme.animNormal,
-                          curve: HudTheme.animCurve,
-                          builder: (context, value, _) {
-                            return Text(
-                              value.toStringAsFixed(1),
-                              style: HudTheme.hudMassive(accent),
-                            );
-                          },
+                          duration: const Duration(milliseconds: 180),
+                          builder: (context, value, _) => Text(
+                            value.toStringAsFixed(0),
+                            style: HudTheme.hudMassive(isDr ? HudTheme.drAmber : HudTheme.textPrimary),
+                          ),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'km/h',
-                          style: HudTheme.hudUnit(),
-                        ),
+                        Text('km/h', style: HudTheme.hudUnit()),
                       ],
                     ),
                   ],
                 ),
               ),
-
-              // Heading.
               Expanded(
                 flex: 2,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.explore, size: 14, color: HudTheme.labelMuted),
-                        const SizedBox(width: 4),
-                        Text('HEADING', style: HudTheme.hudLabel()),
-                      ],
-                    ),
+                    _label(Icons.explore, 'HEADING'),
                     const SizedBox(height: 2),
                     TweenAnimationBuilder<double>(
                       tween: Tween(end: heading),
-                      duration: HudTheme.animNormal,
-                      curve: HudTheme.animCurve,
-                      builder: (context, value, _) {
-                        return Text(
-                          formatHeading(value % 360),
-                          style: HudTheme.hudMedium(HudTheme.textPrimary).copyWith(fontWeight: FontWeight.w700),
-                        );
-                      },
+                      duration: const Duration(milliseconds: 180),
+                      builder: (context, value, _) => Text(
+                        formatHeading(value % 360),
+                        style: HudTheme.hudMedium(HudTheme.textPrimary).copyWith(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    if (s != null && s.headingSigmaDeg < 90)
+                      Text('±${s.headingSigmaDeg.toStringAsFixed(0)}°', style: HudTheme.hudUnit()),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 18),
+
+          // ── GNSS · mount · uncertainty ─────────────────────────
+          Row(
+            children: [
+              Expanded(child: _stat(gnssIcon, 'GNSS', gnssText)),
+              Expanded(child: _stat(Icons.screen_rotation_alt, 'MOUNT', mountText)),
+              Expanded(child: _stat(Icons.radio_button_unchecked, '2σ ERROR', unc, alignEnd: true)),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // ── Aligned IMU traces ─────────────────────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label(Icons.trending_flat, 'FWD ACCEL  ±4 m/s²'),
+                    const SizedBox(height: 4),
+                    LayoutBuilder(
+                      builder: (context, c) => SparklineChart(
+                        data: s?.fwdAccelHistory ?? const [],
+                        lineColor: HudTheme.textPrimary,
+                        width: c.maxWidth,
+                        height: 40,
+                        minValue: -4,
+                        maxValue: 4,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _label(Icons.rotate_right, 'YAW RATE  ±45°/s'),
+                    const SizedBox(height: 4),
+                    LayoutBuilder(
+                      builder: (context, c) => SparklineChart(
+                        data: s?.yawRateHistory ?? const [],
+                        lineColor: HudTheme.textPrimary,
+                        width: c.maxWidth,
+                        height: 40,
+                        minValue: -45,
+                        maxValue: 45,
+                      ),
                     ),
                   ],
                 ),
@@ -109,100 +156,30 @@ class TelemetryPanel extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 32),
+          const SizedBox(height: 10),
 
-          // ── Bottom row: Accuracy + Sparklines ────────────────
+          // ── Road vibration ─────────────────────────────────────
           Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // GPS Accuracy.
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(Icons.satellite_alt, size: 14, color: HudTheme.labelMuted),
-                      const SizedBox(width: 4),
-                      Text('GPS ACCURACY', style: HudTheme.hudLabel()),
-                    ],
+              Text('ROAD', style: HudTheme.hudLabel()),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(3),
+                  child: LinearProgressIndicator(
+                    value: vib,
+                    minHeight: 4,
+                    backgroundColor: Colors.white.withValues(alpha: 0.08),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      vib > 0.66 ? HudTheme.drAmber : HudTheme.textSecondary,
+                    ),
                   ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        gpsAccuracy < 20
-                            ? Icons.gps_fixed
-                            : Icons.gps_not_fixed,
-                        color: HudTheme.textPrimary,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 6),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.baseline,
-                        textBaseline: TextBaseline.alphabetic,
-                        children: [
-                          Text(
-                            gpsAccuracy.toStringAsFixed(1),
-                            style: HudTheme.hudSmall(HudTheme.textPrimary).copyWith(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'm',
-                            style: HudTheme.hudUnit(),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-
-              const Spacer(), // Pushes sensors to the right
-
-              // Accelerometer sparkline.
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.vibration, size: 14, color: HudTheme.labelMuted),
-                      const SizedBox(width: 4),
-                      Text('ACCEL', style: HudTheme.hudLabel()),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  SparklineChart(
-                    data: accelHistory,
-                    lineColor: HudTheme.textPrimary,
-                    width: 80, // Reduced from 100 to prevent overflow
-                    height: 40,
-                  ),
-                ],
-              ),
-
-              const SizedBox(width: 12), // Reduced spacing
-
-              // Gyroscope sparkline.
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.screen_rotation, size: 14, color: HudTheme.labelMuted),
-                      const SizedBox(width: 4),
-                      Text('GYRO', style: HudTheme.hudLabel()),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  SparklineChart(
-                    data: gyroHistory,
-                    lineColor: HudTheme.textPrimary,
-                    width: 80, // Reduced from 100 to prevent overflow
-                    height: 40,
-                  ),
-                ],
+              const SizedBox(width: 10),
+              Text(
+                s == null ? '' : '${s.vibrationRms.toStringAsFixed(2)} m/s² · ${s.shockCount} shocks',
+                style: HudTheme.hudLabel(),
               ),
             ],
           ),
@@ -210,4 +187,27 @@ class TelemetryPanel extends StatelessWidget {
       ),
     );
   }
+
+  static Widget _label(IconData icon, String text) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: HudTheme.labelMuted),
+          const SizedBox(width: 4),
+          Text(text, style: HudTheme.hudLabel()),
+        ],
+      );
+
+  static Widget _stat(IconData icon, String label, String value, {bool alignEnd = false}) => Column(
+        crossAxisAlignment: alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          _label(icon, label),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: HudTheme.hudSmall(HudTheme.textPrimary).copyWith(fontWeight: FontWeight.w700),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      );
 }

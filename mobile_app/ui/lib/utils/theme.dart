@@ -17,6 +17,8 @@ class HudTheme {
   static const Color gnssGlow = Color(0x33FFFFFF);
   static const Color gnssGreen = Color(0xFFFFFFFF); // No longer green, pure white
   static const Color mapMarker = Color(0xFF4285F4); // Google Maps blue
+  static const Color gnssDot = Color(0xFF34D399); // healthy-fix indicator
+  static const Color gnssTrack = Color(0x804285F4); // recent GNSS fixes on the map
 
   // Dead Reckoning mode — Specific Orange Accent
   static const Color drAccent = Color(0xFFFF8A3D);

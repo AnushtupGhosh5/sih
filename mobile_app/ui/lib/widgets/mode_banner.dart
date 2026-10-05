@@ -1,47 +1,44 @@
 import 'package:flutter/material.dart';
+
+import '../engine/navigation_engine.dart';
 import '../utils/theme.dart';
 
-/// Animated banner showing the current navigation mode.
-///
-/// Transitions smoothly between GNSS+INS FUSION (cyan/green)
-/// and DEAD RECKONING (amber/orange) with debounced switching
-/// handled by the parent.
+/// Animated banner showing the current navigation mode:
+/// GNSS + INS (quiet), GNSS degraded (amber outline), Dead reckoning (solid
+/// orange, pulsing).
 class ModeBanner extends StatefulWidget {
-  final bool isGnssMode;
+  final NavMode mode;
+  final bool acquiring;
 
-  const ModeBanner({super.key, required this.isGnssMode});
+  const ModeBanner({super.key, required this.mode, this.acquiring = false});
 
   @override
   State<ModeBanner> createState() => _ModeBannerState();
 }
 
-class _ModeBannerState extends State<ModeBanner>
-    with SingleTickerProviderStateMixin {
+class _ModeBannerState extends State<ModeBanner> with SingleTickerProviderStateMixin {
   late AnimationController _pulseController;
 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
-    if (!widget.isGnssMode) {
-      _pulseController.repeat(reverse: true);
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+    _sync();
+  }
+
+  void _sync() {
+    if (widget.mode == NavMode.deadReckoning) {
+      if (!_pulseController.isAnimating) _pulseController.repeat(reverse: true);
+    } else {
+      _pulseController.stop();
+      _pulseController.value = 0;
     }
   }
 
   @override
   void didUpdateWidget(ModeBanner oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isGnssMode) {
-      _pulseController.stop();
-      _pulseController.value = 0;
-    } else {
-      if (!_pulseController.isAnimating) {
-        _pulseController.repeat(reverse: true);
-      }
-    }
+    _sync();
   }
 
   @override
@@ -52,15 +49,20 @@ class _ModeBannerState extends State<ModeBanner>
 
   @override
   Widget build(BuildContext context) {
-    final isGnss = widget.isGnssMode;
-
-    final bgColor = isGnss
-        ? HudTheme.surface.withValues(alpha: 0.7) // Deep dark blur for GNSS
-        : HudTheme.drAccent; // Solid orange for DR mode
-    final textColor = HudTheme.textPrimary;
-    final iconColor = HudTheme.textPrimary; // Keep icon white against the orange/dark background
-    final icon = isGnss ? Icons.satellite_alt : Icons.warning_amber_rounded;
-    final label = isGnss ? 'GNSS + INS' : 'Dead Reckoning';
+    final (Color bg, IconData icon, String label) = switch (widget.mode) {
+      NavMode.deadReckoning => (HudTheme.drAccent, Icons.warning_amber_rounded, 'DEAD RECKONING'),
+      NavMode.degraded => (
+          HudTheme.surface.withValues(alpha: 0.75),
+          Icons.gps_not_fixed,
+          widget.acquiring ? 'ACQUIRING GNSS' : 'GNSS DEGRADED · INS'
+        ),
+      NavMode.gnssIns => (HudTheme.surface.withValues(alpha: 0.7), Icons.satellite_alt, 'GNSS + INS'),
+    };
+    final dot = switch (widget.mode) {
+      NavMode.deadReckoning => HudTheme.textPrimary,
+      NavMode.degraded => HudTheme.drAmber,
+      NavMode.gnssIns => HudTheme.gnssDot,
+    };
 
     return AnimatedBuilder(
       animation: _pulseController,
@@ -69,38 +71,26 @@ class _ModeBannerState extends State<ModeBanner>
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: HudTheme.glassWrap(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            borderRadius: 32, // Pill shape
-            backgroundColor: bgColor,
+            borderRadius: 32,
+            backgroundColor: bg,
             shadowColor: Colors.black.withValues(alpha: 0.3 + _pulseController.value * 0.1),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                AnimatedSwitcher(
-                  duration: HudTheme.animFast,
-                  child: Icon(
-                    icon,
-                    key: ValueKey(icon),
-                    color: iconColor,
-                    size: 14, // Smaller icon
-                  ),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: dot),
                 ),
+                const SizedBox(width: 8),
+                Icon(icon, color: HudTheme.textPrimary, size: 14),
                 const SizedBox(width: 8),
                 AnimatedSwitcher(
                   duration: HudTheme.animNormal,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: ScaleTransition(
-                      scale: Tween<double>(begin: 0.85, end: 1.0).animate(
-                        CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
-                      ),
-                      child: child,
-                    ),
-                  ),
                   child: Text(
                     label,
                     key: ValueKey(label),
-                    style: HudTheme.hudSmall(textColor).copyWith(fontWeight: FontWeight.w600),
+                    style: HudTheme.hudSmall(HudTheme.textPrimary).copyWith(fontWeight: FontWeight.w600),
                   ),
                 ),
               ],
