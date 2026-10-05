@@ -158,6 +158,7 @@ The app has not yet been driven through a real tunnel. All quantitative results 
 | Ritu | Dead reckoning, map matching, evaluation |
 | Anushtup | Sensor fusion |
 | Nilesh | Mobile app and integration |
+| Mayukh Saha | Team member |
 
 ## References
 
